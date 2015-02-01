@@ -32,14 +32,14 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
         this._camImage = new Image();
 
         this._camImage.onload = function() {
-            console.log("_this._context.clearRect(0, 0, _this._width, _this._height)"+_this._width+","+_this._height);
+            //console.log("_this._context.clearRect(0, 0, _this._width, _this._height)"+_this._width+","+_this._height);
             _this._context.clearRect(0, 0, _this._width, _this._height);
             if (window.orientation == 90
                || window.orientation == -90)
             {
                 _this._context.save();
                 // rotate 90
-                console.log("_this._context.translate(_this._width/2, _this._height/2)"+(_this._width/2)+","+ (_this._height/2);
+                //console.log("_this._context.translate(_this._width/2, _this._height/2)"+(_this._width/2)+","+ (_this._height/2);
                 _this._context.translate(_this._width/2, _this._height/2);
                 _this._context.rotate((90 - window.orientation) *Math.PI/180);
                 _this._context.drawImage(_this._camImage, 0, 0, 352, 288, -_this._width/2, -_this._height/2, _this._width, _this._height);
@@ -48,7 +48,7 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
             }
             else
             {
-                console.log("comes in else");
+                //console.log("comes in else");
                 _this._context.save();
                 // rotate 90
                 _this._context.translate(_this._width/2, _this._height/2);
@@ -84,7 +84,7 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
     };
 
     CanvasCamera.prototype.doOrientationChange = function() {
-        console.log('doOrientationChange');
+        //console.log('doOrientationChange');
         switch(window.orientation)
         {
             case -90:
@@ -95,8 +95,8 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
                 this._orientation = 'portrait';
                 break;
         }
-        console.log('window.innerWidth'+window.innerWidth);
-        console.log('window.innerHeight'+window.innerHeight);
+        //console.log('window.innerWidth'+window.innerWidth);
+        //console.log('window.innerHeight'+window.innerHeight);
         
         var windowWidth = window.innerWidth;
         var windowHeight = window.innerHeight;
@@ -105,17 +105,17 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
 
         this._obj.width = windowWidth;// * pixelRatio;   /// resolution of canvas
         this._obj.height = windowHeight;// * pixelRatio;
-        console.log('this._obj.width'+this._obj.width);
+        //console.log('this._obj.width'+this._obj.width);
 
         this._obj.style.width = windowWidth + 'px';   /// CSS size of canvas
         this._obj.style.height = windowHeight + 'px';
-        console.log('this._obj.style.width'+this._obj.style.width);
+        //console.log('this._obj.style.width'+this._obj.style.width);
 
         this._x = 0;
         this._y = 0;
         this._width = windowWidth;
         this._height = windowHeight;
-        console.log('this._width'+this._width+" this._height"+this._height);
+        //console.log('this._width'+this._width+" this._height"+this._height);
     };
 
     CanvasCamera.prototype.takePicture = function(onsuccess) {
