@@ -1,239 +1,282 @@
 package com.keith.canvascameraplugin;
 
-
-import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import android.util.Log;
+import android.util.Size;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.content.Context;
+import android.media.Image;
+import android.media.ImageReader;
+import android.graphics.ImageFormat;
+import android.view.Surface;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.params.StreamConfigurationMap;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 
-/**
- * Created by donald on 8/20/14.
- */
-@SuppressLint("NewApi")
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
 public class CanvasCamera extends CordovaPlugin
 {
-    private CallbackContext canvasCameraCallback;
-    
-	private static final int CANVAS_CAMERA = 2;   
+    private final static String TAG = "SimpleCamera";
 
-    public static final String QUALITY = "_quality";
-    public static final String DESTTYPE = "_destType";
-    public static final String ALLOWEDIT = "_allowEdit";
-    public static final String ENCODETYPE = "_encodeType";
-    public static final String SAVETOPHOTOALBUM = "_saveToPhotoAlbum";
-    public static final String CORRECTORIENTATION = "_correctOrientation";
-    public static final String WIDTH = "_width";
-    public static final String HEIGHT = "_height";
-    public static final String FLASH = "flash";
-    public static final String REVERT = "revert";
-    
-    // DestinationType
-    public static final int DestinationTypeDataURL = 0;
-    public static final int DestinationTypeFileURI = 1;
+    /**
+     * An activity for Cordova webView.
+     */
+    private Activity mActivity;
+    private CallbackContext mCallbackContext;
 
-    // EncodingType
-    public static final int EncodingTypeJPEG = 0;
-    public static final int EncodingTypePNG = 1;
+    private CameraManager mCameraManager;
+    private CameraCaptureSession mCameraSession;
+    private CameraDevice mCamera;
+    private String mCameraId;
+    private ImageReader mReader = null;
+    private HandlerThread mBackgroundThread;
+    private Handler mBackgroundHandler;
+    private SimpleImageListener mListener = null;
 
-    // CameraPosition
-    public static final int CameraPositionBack = 1;
-    public static final int CameraPositionFront = 2;
+    private CameraCaptureSession.CaptureCallback mCaptureCallback
+            = new CameraCaptureSession.CaptureCallback() {
 
-    public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
-    public static final String DATE_FORMAT = "yyyy-MM-dd";
+        @Override
+        public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
+                                       TotalCaptureResult result) {
+            Log.d(TAG, "Capture complited");
+        }
 
-    // parameter
-    public static final String kQualityKey          = "quality";
-    public static final String kDestinationTypeKey = "destinationType";
-    public static final String kEncodingTypeKey     = "encodingType";
+    };
 
-    public static final String kSaveToPhotoAlbumKey     = "saveToPhotoAlbum";
-    public static final String kCorrectOrientationKey = "correctOrientation";
+    private void startBackgroundThread() {
+        mBackgroundThread = new HandlerThread("CameraBackground");
+        mBackgroundThread.start();
+        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+        Log.d(TAG, "Background thread started");
+    }
 
-    public static final String kWidthKey        = "width";
-    public static final String kHeightKey       = "height";
+    private void stopBackgroundThread() {
+        mBackgroundThread.quitSafely();
+        try {
+            mBackgroundThread.join();
+            mBackgroundThread = null;
+            mBackgroundHandler = null;
 
-    // options
-    private int _quality = 85;
-    private int _destType = DestinationTypeDataURL;
-    private boolean _allowEdit = false;
-    private int _encodeType = EncodingTypeJPEG;
-    private boolean _saveToPhotoAlbum = false;
-    private boolean _correctOrientation = true;
+            Log.d(TAG, "Background thread stopped");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 
-    private int _width = 640;
-    private int _height = 480;
+    private class SimpleImageListener implements ImageReader.OnImageAvailableListener {
+        private int fileId = 0;
 
-    public static final int DONE=1;  
-    public static final int NEXT=2;  
-    public static final int PERIOD=1;   
-    
-    public static CanvasCamera sharedCanvasCamera = null;
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image img = reader.acquireLatestImage();
+            Log.d(TAG, "New image available! With width: " + img.getWidth());
+
+            fileId++;
+
+            File file = new File(mActivity.getExternalFilesDir(null), fileId + ".jpg");
+
+
+
+            if (fileId > 10)
+            {
+                File prevFile = new File(mActivity.getExternalFilesDir(null), (fileId - 10) + ".jpg");
+                prevFile.delete();
+            }
+
+            saveImage(img, file);
+
+            PluginResult result = new PluginResult(PluginResult.Status.OK,
+                        file.getPath());
+
+            result.setKeepCallback(true);
+            mCallbackContext.sendPluginResult(result);
+        }
+    }
+
+
+    public void saveImage(Image image, File file) {
+        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        FileOutputStream output = null;
+        try {
+            output = new FileOutputStream(file);
+            output.write(bytes);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            image.close();
+            if (null != output) {
+                try {
+                    output.close();
+                    Log.d(TAG, "file saved!");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 
     @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException 
+    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException
     {
-    	sharedCanvasCamera = this;
-    	
-        // action == "contacts" : retrieving information
-    	
-    	this.canvasCameraCallback = callbackContext;
-    	
         if ("startCapture".equals(action))
         {
             if (args.length() > 0)
-                startCapture(args);
-            
+                startCapture(args, callbackContext);
+
             return true;
         }
 
         return false;
     }
 
-	private void startCapture(JSONArray args)
+	private void startCapture(JSONArray args, CallbackContext callbackContext)
     {
-        // init parameters - default values
-        _quality = 85;
-        _destType = DestinationTypeFileURI;
-        _encodeType = EncodingTypeJPEG;
-        _saveToPhotoAlbum = false;
-        _correctOrientation = true;
-        _width = 640;
-        _height = 480;
+        Log.d(TAG, "capture started");
 
-        // parse options
-        if (args.length() > 0)
-        {
+        mActivity = this.cordova.getActivity();
+
+        mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
+        Log.d(TAG, "camera manager obtained");
+
+        try {
+            mCameraId = mCameraManager.getCameraIdList()[0];
+            Log.d(TAG, "got camera ID");
+
+            startBackgroundThread();
+
+            mCameraManager.openCamera(mCameraId, cameraStateCallback, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+        mCallbackContext = callbackContext;
+        PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
+        result.setKeepCallback(true);
+        callbackContext.sendPluginResult(result);
+    }
+
+    private CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
+
+		@Override
+		public void onOpened(CameraDevice camera) {
+			Log.d(TAG, "camera opened");
+
+            mCamera = camera;
+
+
             try {
-                JSONObject jsonData = args.getJSONObject(0);
-                getOptions(jsonData);
-            } catch (Exception e) {
-                Log.d("CanvasCamera", "Parsing options error : " + e.getMessage());
+                CameraCharacteristics characteristics
+                    = mCameraManager.getCameraCharacteristics(mCameraId);
+                StreamConfigurationMap map = characteristics.get(
+                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+                Size[] outputSizes = map.getOutputSizes(ImageFormat.JPEG);
+                Size previewSize = outputSizes[outputSizes.length - 1];
+
+                Log.d(TAG, "Creating ImageReader with size " + previewSize.toString() + " for camera " + mCameraId);
+
+                mReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(),
+                    ImageFormat.JPEG, /*maxImages*/10);
+
+                mListener  = new SimpleImageListener();
+
+                mReader.setOnImageAvailableListener(mListener, mBackgroundHandler);
+
+                camera.createCaptureSession(Arrays.asList(mReader.getSurface()),
+                    new CameraCaptureSession.StateCallback() {
+                        @Override
+                        public void onConfigured(CameraCaptureSession cameraCaptureSession) {
+                            // When the session is ready, we start displaying the preview.
+                            mCameraSession = cameraCaptureSession;
+                            try {
+                                CaptureRequest request = prepareCaptureRequest(ImageFormat.JPEG);
+
+                                // Finally, we start displaying the camera preview.
+
+                                mCameraSession.setRepeatingRequest(request,
+                                        null, null);
+
+                                Log.d(TAG, "Set repeating capture request");
+                            } catch (CameraAccessException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                        @Override
+                        public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
+                            Log.e(TAG, "onConfigureFailed");
+                        }
+                    }, null);
+
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
             }
-        }
-        
-        SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(this.cordova.getActivity()).edit();
-        editor.putInt(QUALITY, _quality);
-        editor.putInt(DESTTYPE, _destType);
-        editor.putInt(ENCODETYPE, _encodeType);
-        editor.putBoolean(SAVETOPHOTOALBUM, _saveToPhotoAlbum);
-        editor.putBoolean(CORRECTORIENTATION, _correctOrientation);
-        editor.putInt(WIDTH, _width);
-        editor.putInt(HEIGHT, _height);
-        
-        editor.commit();
-        
-		Intent intent = new Intent(this.cordova.getActivity(), CanvasCameraView.class);
-		this.cordova.startActivityForResult(this, intent, CANVAS_CAMERA);
-    }
-	
-	public void onTakePicture(final JSONObject returnInfo)
-	{
-		cordova.getThreadPool().execute(new Runnable() 
-		{
-            public void run() 
-            {
-        		PluginResult result = new PluginResult(PluginResult.Status.OK, returnInfo);
-        		result.setKeepCallback(true);
-        		canvasCameraCallback.sendPluginResult(result);
-            }
-		});
-	}
-
-    /**
-     * parse options parameter and set it to local variables
-     *
-     */
-    private void getOptions(JSONObject jsonData) throws Exception
-    {
-        if (jsonData == null)
-            return;
-
-        // get parameters from argument.
-
-        // quaility
-        String obj = jsonData.getString(kQualityKey);
-        if (obj != null)
-            _quality = Integer.parseInt(obj);
-
-        // destination type
-        obj = jsonData.getString(kDestinationTypeKey);
-        if (obj != null)
-        {
-            int destinationType = Integer.parseInt(obj);
-            _destType = destinationType;
-        }
-
-        // encoding type
-        obj = jsonData.getString(kEncodingTypeKey);
-        if (obj != null)
-        {
-            int encodingType = Integer.parseInt(obj);
-            _encodeType = encodingType;
-        }
-
-        // width
-        obj = jsonData.getString(kWidthKey);
-        if (obj != null)
-        {
-            _width = Integer.parseInt(obj);
-        }
-
-        // height
-        obj = jsonData.getString(kHeightKey);
-        if (obj != null)
-        {
-            _height = Integer.parseInt(obj);
-        }
-
-        // saveToPhotoAlbum
-        obj = jsonData.getString(kSaveToPhotoAlbumKey);
-        if (obj != null)
-        {
-            _saveToPhotoAlbum = Boolean.parseBoolean(obj);
-        }
-
-        // correctOrientation
-        obj = jsonData.getString(kCorrectOrientationKey);
-        if (obj != null)
-        {
-            _correctOrientation = Boolean.parseBoolean(obj);
-        }
-    }
-
-	public void onActivityResult(int requestCode, int resultCode, Intent intent) 
-	{
-		if (resultCode == Activity.RESULT_OK) 
-		{
-			if (requestCode == CANVAS_CAMERA) 
-			{
-		        if (intent == null)
-		        {
-		        	canvasCameraCallback.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "Error: data is null"));
-		        }
-		        else
-		        {
-	        		cordova.getThreadPool().execute(new Runnable() 
-	        		{
-	    	            public void run() 
-	    	            {
-	    	        		canvasCameraCallback.success();
-	    	            }
-	    			});
-	        		
-		        }
-			}
 		}
-	}
-}
 
+        private CaptureRequest prepareCaptureRequest(int format) {
+            List<Surface> outputSurfaces = new ArrayList<Surface>(1);
+            Surface surface = mReader.getSurface();
+
+            outputSurfaces.add(surface);
+
+            try {
+                CaptureRequest.Builder captureBuilder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+                captureBuilder.addTarget(surface);
+                return captureBuilder.build();
+
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+		@Override
+		public void onError(CameraDevice camera, int error) {
+			// TODO Auto-generated method stub
+			Log.e(TAG, "onError");
+
+		}
+
+		@Override
+		public void onDisconnected(CameraDevice camera) {
+			// TODO Auto-generated method stub
+			Log.e(TAG, "onDisconnected");
+
+		}
+	};
+
+}

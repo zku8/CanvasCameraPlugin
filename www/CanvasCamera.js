@@ -52,7 +52,7 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
                 _this._context.save();
                 // rotate 90
                 _this._context.translate(_this._width/2, _this._height/2);
-                _this._context.rotate((90 - window.orientation)*Math.PI/180);
+                _this._context.rotate((90 - window.orientation) *Math.PI/180);
                 _this._context.drawImage(_this._camImage, 0, 0, 352, 288, -_this._height/2, -_this._width/2, _this._height, _this._width);
                 //
                 _this._context.restore();
@@ -66,13 +66,18 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
 
 
     CanvasCamera.prototype.start = function(options) {
-        cordova.exec(false, false, "CanvasCamera", "startCapture", [options]);
+        cordova.exec(function(imgData){
+            if (imgData) {
+                console.log(imgData);
+                this._camImage.src = imgData;
+            }
+        }.bind(this), false, "CanvasCamera", "startCapture", [options]);
     };
 
 
 
-    CanvasCamera.prototype.capture = function(data) {
-        this._camImage.src = data;
+    CanvasCamera.prototype.capture = function(imgData) {
+        this._camImage.src = imgData;
     };
 
     CanvasCamera.prototype.setFlashMode = function(flashMode) {
@@ -97,13 +102,13 @@ cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module)
         }
         console.log('window.innerWidth'+window.innerWidth);
         console.log('window.innerHeight'+window.innerHeight);
-        
+
         //var windowWidth = window.innerWidth;
         //var windowHeight = window.innerHeight;
-        
+
         var windowWidth = 200;
         var windowHeight = 200;
-        
+
         var pixelRatio = window.devicePixelRatio || 1; /// get pixel ratio of device
 
 
