@@ -45,9 +45,6 @@ public class CanvasCamera extends CordovaPlugin
 {
     private final static String TAG = "SimpleCamera";
 
-    /**
-     * An activity for Cordova webView.
-     */
     private Activity mActivity;
     private CallbackContext mCallbackContext;
 
@@ -60,111 +57,25 @@ public class CanvasCamera extends CordovaPlugin
     private Handler mBackgroundHandler;
     private SimpleImageListener mListener = null;
 
-    private CameraCaptureSession.CaptureCallback mCaptureCallback
-            = new CameraCaptureSession.CaptureCallback() {
-
-        @Override
-        public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
-                                       TotalCaptureResult result) {
-            Log.d(TAG, "Capture complited");
-        }
-
-    };
-
-    private void startBackgroundThread() {
-        mBackgroundThread = new HandlerThread("CameraBackground");
-        mBackgroundThread.start();
-        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
-        Log.d(TAG, "Background thread started");
-    }
-
-    private void stopBackgroundThread() {
-        mBackgroundThread.quitSafely();
-        try {
-            mBackgroundThread.join();
-            mBackgroundThread = null;
-            mBackgroundHandler = null;
-
-            Log.d(TAG, "Background thread stopped");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private class SimpleImageListener implements ImageReader.OnImageAvailableListener {
-        private int fileId = 0;
-
-        @Override
-        public void onImageAvailable(ImageReader reader) {
-            Image img = reader.acquireLatestImage();
-            Log.d(TAG, "New image available! With width: " + img.getWidth());
-
-            fileId++;
-
-            File file = new File(mActivity.getExternalFilesDir(null), fileId + ".jpg");
-
-
-
-            if (fileId > 10)
-            {
-                File prevFile = new File(mActivity.getExternalFilesDir(null), (fileId - 10) + ".jpg");
-                prevFile.delete();
-            }
-
-            saveImage(img, file);
-
-            PluginResult result = new PluginResult(PluginResult.Status.OK,
-                        file.getPath());
-
-            result.setKeepCallback(true);
-            mCallbackContext.sendPluginResult(result);
-        }
-    }
-
-
-    public void saveImage(Image image, File file) {
-        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-        FileOutputStream output = null;
-        try {
-            output = new FileOutputStream(file);
-            output.write(bytes);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            image.close();
-            if (null != output) {
-                try {
-                    output.close();
-                    Log.d(TAG, "file saved!");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException
     {
-        if ("startCapture".equals(action))
-        {
+        if ("startCapture".equals(action)) {
             if (args.length() > 0)
                 startCapture(args, callbackContext);
 
+            return true;
+        }
+        else if ("stopCapture".equals(action)) {
+            stopCapture(args, callbackContext);
             return true;
         }
 
         return false;
     }
 
-	private void startCapture(JSONArray args, CallbackContext callbackContext)
+    private void startCapture(JSONArray args, CallbackContext callbackContext)
     {
-        Log.d(TAG, "capture started");
-
         mActivity = this.cordova.getActivity();
 
         mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
@@ -172,11 +83,10 @@ public class CanvasCamera extends CordovaPlugin
 
         try {
             mCameraId = mCameraManager.getCameraIdList()[0];
-            Log.d(TAG, "got camera ID");
-
             startBackgroundThread();
-
             mCameraManager.openCamera(mCameraId, cameraStateCallback, null);
+
+            Log.d(TAG, "capture started");
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -185,6 +95,20 @@ public class CanvasCamera extends CordovaPlugin
         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
         result.setKeepCallback(true);
         callbackContext.sendPluginResult(result);
+    }
+
+    private void stopCapture(JSONArray args, CallbackContext callbackContext)
+    {
+        try {
+            stopBackgroundThread();
+            mCamera.close();
+
+            Log.d(TAG, "capture stopped");
+            callbackContext.success();
+        }
+        catch (Exception e){
+            callbackContext.error("Failed to stop capture");
+        }
     }
 
     private CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
@@ -216,17 +140,14 @@ public class CanvasCamera extends CordovaPlugin
 
                 camera.createCaptureSession(Arrays.asList(mReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
+
                         @Override
                         public void onConfigured(CameraCaptureSession cameraCaptureSession) {
-                            // When the session is ready, we start displaying the preview.
                             mCameraSession = cameraCaptureSession;
                             try {
                                 CaptureRequest request = prepareCaptureRequest(ImageFormat.JPEG);
 
-                                // Finally, we start displaying the camera preview.
-
-                                mCameraSession.setRepeatingRequest(request,
-                                        null, null);
+                                mCameraSession.setRepeatingRequest(request, null, null);
 
                                 Log.d(TAG, "Set repeating capture request");
                             } catch (CameraAccessException e) {
@@ -278,5 +199,79 @@ public class CanvasCamera extends CordovaPlugin
 
 		}
 	};
+
+    private void startBackgroundThread() {
+        mBackgroundThread = new HandlerThread("CameraBackground");
+        mBackgroundThread.start();
+        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+        Log.d(TAG, "Background thread started");
+    }
+
+    private void stopBackgroundThread() {
+        mBackgroundThread.quitSafely();
+        try {
+            mBackgroundThread.join();
+            mBackgroundThread = null;
+            mBackgroundHandler = null;
+
+            Log.d(TAG, "Background thread stopped");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private class SimpleImageListener implements ImageReader.OnImageAvailableListener {
+        private int mFileId = 0;
+
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image img = reader.acquireLatestImage();
+            Log.d(TAG, "New image available! With width: " + img.getWidth());
+
+            mFileId++;
+
+            File file = new File(mActivity.getExternalFilesDir(null), mFileId + ".jpg");
+
+            if (mFileId > 10)
+            {
+                File prevFile = new File(mActivity.getExternalFilesDir(null), (mFileId - 10) + ".jpg");
+                prevFile.delete();
+            }
+
+            saveImage(img, file);
+
+            PluginResult result = new PluginResult(PluginResult.Status.OK,
+                        file.getPath());
+
+            result.setKeepCallback(true);
+            mCallbackContext.sendPluginResult(result);
+        }
+    }
+
+
+    public void saveImage(Image image, File file) {
+        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        FileOutputStream output = null;
+        try {
+            output = new FileOutputStream(file);
+            output.write(bytes);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            image.close();
+            if (null != output) {
+                try {
+                    output.close();
+                    Log.d(TAG, "file saved!");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 
 }
