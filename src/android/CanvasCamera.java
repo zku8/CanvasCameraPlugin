@@ -70,6 +70,10 @@ public class CanvasCamera extends CordovaPlugin
             stopCapture(args, callbackContext);
             return true;
         }
+        else if ("setFlashMode".equals(action)) {
+            setFlashMode(args, callbackContext);
+            return true;
+        }
 
         return false;
     }
@@ -101,9 +105,35 @@ public class CanvasCamera extends CordovaPlugin
     {
         try {
             stopBackgroundThread();
+            mCameraSession.close();
             mCamera.close();
 
             Log.d(TAG, "capture stopped");
+            callbackContext.success();
+        }
+        catch (Exception e){
+            callbackContext.error("Failed to stop capture");
+        }
+    }
+
+    private void setFlashMode(JSONArray args, CallbackContext callbackContext)
+    {
+        try {
+            int flashMode;
+
+            boolean isFlashModeOn = args.getBoolean(0);
+
+            if (isFlashModeOn) {
+                flashMode = CameraMetadata.FLASH_MODE_TORCH;
+            }
+            else {
+                flashMode = CameraMetadata.FLASH_MODE_OFF;
+            }
+
+            CaptureRequest request = prepareCaptureRequest(flashMode);
+            mCameraSession.setRepeatingRequest(request, null, null);
+
+            Log.d(TAG, "flash mode changed");
             callbackContext.success();
         }
         catch (Exception e){
@@ -145,8 +175,7 @@ public class CanvasCamera extends CordovaPlugin
                         public void onConfigured(CameraCaptureSession cameraCaptureSession) {
                             mCameraSession = cameraCaptureSession;
                             try {
-                                CaptureRequest request = prepareCaptureRequest(ImageFormat.JPEG);
-
+                                CaptureRequest request = prepareCaptureRequest(CameraMetadata.FLASH_MODE_OFF);
                                 mCameraSession.setRepeatingRequest(request, null, null);
 
                                 Log.d(TAG, "Set repeating capture request");
@@ -166,25 +195,6 @@ public class CanvasCamera extends CordovaPlugin
             }
 		}
 
-        private CaptureRequest prepareCaptureRequest(int format) {
-            List<Surface> outputSurfaces = new ArrayList<Surface>(1);
-            Surface surface = mReader.getSurface();
-
-            outputSurfaces.add(surface);
-
-            try {
-                CaptureRequest.Builder captureBuilder =
-                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-
-                captureBuilder.addTarget(surface);
-                return captureBuilder.build();
-
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-
 		@Override
 		public void onError(CameraDevice camera, int error) {
 			// TODO Auto-generated method stub
@@ -199,6 +209,27 @@ public class CanvasCamera extends CordovaPlugin
 
 		}
 	};
+
+    private CaptureRequest prepareCaptureRequest(int flashMode) {
+        List<Surface> outputSurfaces = new ArrayList<Surface>(1);
+        Surface surface = mReader.getSurface();
+
+        outputSurfaces.add(surface);
+
+        try {
+            CaptureRequest.Builder captureBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+            captureBuilder.addTarget(surface);
+            captureBuilder.set(CaptureRequest.FLASH_MODE, flashMode);
+
+            return captureBuilder.build();
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 
     private void startBackgroundThread() {
         mBackgroundThread = new HandlerThread("CameraBackground");

@@ -37,11 +37,11 @@ typedef enum {
 @interface CanvasCamera () {
     dispatch_queue_t queue;
     BOOL bIsStarted;
-    
+
     // parameters
     AVCaptureFlashMode          _flashMode;
     AVCaptureDevicePosition     _devicePosition;
-    
+
     // options
     int _quality;
     DestinationType _destType;
@@ -49,7 +49,7 @@ typedef enum {
     EncodingType _encodeType;
     BOOL _saveToPhotoAlbum;
     BOOL _correctOrientation;
-    
+
     int _width;
     int _height;
 }
@@ -64,7 +64,7 @@ typedef enum {
 {
     CDVPluginResult *pluginResult = nil;
     NSString *resultJS = nil;
-    
+
     // check already started
     if (self.session && bIsStarted)
     {
@@ -75,7 +75,7 @@ typedef enum {
 
         return;
     }
-    
+
     // init parameters - default values
     _quality = 85;
     _destType = DestinationTypeFileURI;
@@ -84,45 +84,45 @@ typedef enum {
     _height = 480;
     _saveToPhotoAlbum = NO;
     _correctOrientation = YES;
-    
+
     // parse options
     if ([command.arguments count] > 0)
     {
         NSDictionary *jsonData = [command.arguments objectAtIndex:0];
         [self getOptions:jsonData];
     }
-    
+
     // add support for options (fps, capture quality, capture format, etc.)
     self.session = [[AVCaptureSession alloc] init];
     self.session.sessionPreset = AVCaptureSessionPresetPhoto;//AVCaptureSessionPreset352x288;
-    
+
     self.device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
     self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
-    
+
     self.output = [[AVCaptureVideoDataOutput alloc] init];
     self.output.videoSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-    
+
     self.stillImageOutput = [[AVCaptureStillImageOutput alloc] init];
     NSDictionary *outputSettings = @{ AVVideoCodecKey : AVVideoCodecJPEG};
     [self.stillImageOutput setOutputSettings:outputSettings];
-    
-    
+
+
     queue = dispatch_queue_create("canvas_camera_queue", NULL);
-    
+
     [self.output setSampleBufferDelegate:(id)self queue:queue];
-    
+
     [self.session addInput:self.input];
     [self.session addOutput:self.output];
-    
+
     // add still image output
     [self.session addOutput:self.stillImageOutput];
 
-    
+
     [self.session startRunning];
-    
+
     bIsStarted = YES;
-    
-    
+
+
     // success callback
     pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
     resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
@@ -133,14 +133,14 @@ typedef enum {
 {
     CDVPluginResult *pluginResult = nil;
     NSString *resultJS = nil;
-    
+
     if (self.session)
     {
         [self.session stopRunning];
         self.session = nil;
-        
+
         bIsStarted = NO;
-        
+
         // success callback
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
         resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
@@ -149,7 +149,7 @@ typedef enum {
     else
     {
         bIsStarted = NO;
-        
+
         // failure callback
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Already stopped"];
         resultJS = [pluginResult toErrorCallbackString:command.callbackId];
@@ -159,10 +159,9 @@ typedef enum {
 
 - (void)setFlashMode:(CDVInvokedUrlCommand *)command
 {
-    
     CDVPluginResult *pluginResult = nil;
     NSString *resultJS = nil;
-    
+
     NSString *errMsg = @"";
     BOOL bParsed = NO;
     if (command.arguments.count <= 0)
@@ -172,23 +171,18 @@ typedef enum {
     }
     else
     {
-        NSString *strFlashMode = [command.arguments objectAtIndex:0];
-        int flashMode = [strFlashMode integerValue];
-        if (flashMode != AVCaptureFlashModeOff
-            && flashMode != AVCaptureFlashModeOn
-            && flashMode != AVCaptureFlashModeAuto)
-        {
-            bParsed = NO;
-            errMsg = @"Invalid parameter";
+        bParsed = YES;
+
+        BOOL bFlashModeOn = [[command.arguments objectAtIndex:0] boolValue];
+        if (bFlashModeOn) {
+            _flashMode = AVCaptureFlashModeOn;
         }
-        else
-        {
-            _flashMode = flashMode;
-            bParsed = YES;
+        else {
+            _flashMode = AVCaptureFlashModeOff;
         }
     }
-    
-    
+
+
     if (bParsed)
     {
         BOOL bSuccess = NO;
@@ -208,13 +202,8 @@ typedef enum {
                     [self.device setTorchMode:AVCaptureTorchModeOff];
                     [self.device setFlashMode:AVCaptureFlashModeOff];
                 }
-                else if (_flashMode == AVCaptureFlashModeAuto)
-                {
-                    [self.device setTorchMode:AVCaptureTorchModeAuto];
-                    [self.device setFlashMode:AVCaptureFlashModeAuto];
-                }
                 [self.device unlockForConfiguration];
-                
+
                 bSuccess = YES;
             }
             else
@@ -228,7 +217,7 @@ typedef enum {
             bSuccess = NO;
             errMsg = @"Session is not started";
         }
-        
+
         if (bSuccess)
         {
             // success callback
@@ -255,7 +244,7 @@ typedef enum {
 {
     CDVPluginResult *pluginResult = nil;
     NSString *resultJS = nil;
-    
+
     NSString *errMsg = @"";
     BOOL bParsed = NO;
     if (command.arguments.count <= 0)
@@ -280,7 +269,7 @@ typedef enum {
             bParsed = YES;
         }
     }
-    
+
     if (bParsed)
     {
         //Change camera source
@@ -292,23 +281,23 @@ typedef enum {
             {
                 //Indicate that some changes will be made to the session
                 [self.session beginConfiguration];
-                
+
                 //Remove existing input
                 AVCaptureInput* currentCameraInput = [self.session.inputs objectAtIndex:0];
                 [self.session removeInput:currentCameraInput];
-                
+
                 //Get new input
                 AVCaptureDevice *newCamera = nil;
-                   
+
                 newCamera = [self cameraWithPosition:_devicePosition];
-                
+
                 //Add input to session
                 AVCaptureDeviceInput *newVideoInput = [[AVCaptureDeviceInput alloc] initWithDevice:newCamera error:nil];
                 [self.session addInput:newVideoInput];
-                
+
                 //Commit all the configuration changes at once
                 [self.session commitConfiguration];
-                
+
                 // success callback
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
                 resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
@@ -321,8 +310,8 @@ typedef enum {
                 resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
                 [self writeJavascript:resultJS];
             }
-            
-            
+
+
         }
         else
         {
@@ -331,8 +320,8 @@ typedef enum {
             resultJS = [pluginResult toErrorCallbackString:command.callbackId];
             [self writeJavascript:resultJS];
         }
-        
-        
+
+
     }
     else
     {
@@ -346,7 +335,7 @@ typedef enum {
 {
     __block CDVPluginResult *pluginResult = nil;
     __block NSString *resultJS = nil;
-    
+
     AVCaptureConnection *videoConnection = nil;
     for (AVCaptureConnection *connection in self.stillImageOutput.connections) {
         for (AVCaptureInputPort *port in [connection inputPorts]) {
@@ -357,18 +346,18 @@ typedef enum {
         }
         if (videoConnection) { break; }
     }
-    
+
     // Find out the current orientation and tell the still image output.
 	AVCaptureConnection *stillImageConnection = videoConnection;//[self.stillImageOutput connectionWithMediaType:AVMediaTypeVideo];
 	UIDeviceOrientation curDeviceOrientation = [[UIDevice currentDevice] orientation];
 	AVCaptureVideoOrientation avcaptureOrientation = [self avOrientationForDeviceOrientation:curDeviceOrientation];
 	[stillImageConnection setVideoOrientation:avcaptureOrientation];
-    
+
     // set the appropriate pixel format / image type output setting depending on if we'll need an uncompressed image for
     // the possiblity of drawing the red square over top or if we're just writing a jpeg to the camera roll which is the trival case
     [self.stillImageOutput setOutputSettings:[NSDictionary dictionaryWithObject:AVVideoCodecJPEG
                                                                          forKey:AVVideoCodecKey]];
-	
+
 	[self.stillImageOutput captureStillImageAsynchronouslyFromConnection:stillImageConnection
        completionHandler:^(CMSampleBufferRef imageDataSampleBuffer, NSError *error) {
            if (error) {
@@ -399,7 +388,7 @@ typedef enum {
                        }];
                    }
                }];
-               
+
                if (attachments)
                    CFRelease(attachments);
                //[library release];
@@ -408,9 +397,9 @@ typedef enum {
                // queueing this block to execute on the videoDataOutputQueue serial queue ensures this
                // see the header doc for setSampleBufferDelegate:queue: for more information
                dispatch_sync(queue, ^(void) {
-                   
+
                    NSData *jpegData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageDataSampleBuffer];
-                   
+
                    // save image to camera roll
                    if (_saveToPhotoAlbum)
                    {
@@ -421,23 +410,23 @@ typedef enum {
                        if (attachments)
                            CFRelease(attachments);
                    }
-                   
+
                    UIImage *srcImg = [UIImage imageWithData:jpegData];
                    UIImage *resizedImg = [CanvasCamera resizeImage:srcImg toSize:CGSizeMake(_width, _height)];
-                   
-                       
+
+
                    BOOL bRet = NO;
                    NSMutableDictionary *dicRet = [[NSMutableDictionary alloc] init];
-                   
+
                    // type
                    NSString *type = (_encodeType == EncodingTypeJPEG)?@"image/jpeg":@"image/png";
                    [dicRet setObject:type forKey:@"type"];
-                   
+
                    // lastModifiedDate
                    NSDate *currDate = [NSDate date];
                    NSString *lastModifiedDate = [CanvasCamera date2str:currDate withFormat:DATETIME_FORMAT];
                    [dicRet setObject:lastModifiedDate forKey:@"lastModifiedDate"];
-                   
+
                    //imageURI
                    NSData *data = nil;
                    if (_encodeType == EncodingTypeJPEG)
@@ -448,9 +437,9 @@ typedef enum {
                    {
                        // save resized image to app space
                        NSString *path = [CanvasCamera getFilePath:[CanvasCamera GetUUID] ext:(_encodeType == EncodingTypeJPEG)?@"jpg":@"png"];
-                       
+
                        bRet = [self writeData:data toPath:path];
-                       
+
                        [dicRet setObject:path forKey:@"imageURI"];
                    }
                    else
@@ -458,14 +447,14 @@ typedef enum {
                        // Convert to Base64 data
                        NSData *base64Data = [data base64EncodedDataWithOptions:0];
                        NSString *strData = [NSString stringWithUTF8String:[base64Data bytes]];
-                       
+
                        [dicRet setObject:strData forKey:@"imageURI"];
                    }
-                   
+
                    // size
                    [dicRet setObject:[NSString stringWithFormat:@"%d", (int)data.length] forKey:@"size"];
 
-                   
+
                    if (bRet == NO)
                    {
                        [self.commandDelegate runInBackground:^{
@@ -482,7 +471,7 @@ typedef enum {
                            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
                        }];
                    }
-                   
+
                });
 #endif
            }
@@ -502,20 +491,20 @@ typedef enum {
         size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
         size_t width = CVPixelBufferGetWidth(imageBuffer);
         size_t height = CVPixelBufferGetHeight(imageBuffer);
-        
+
         CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
         CGContextRef newContext = CGBitmapContextCreate(baseAddress, width, height, 8, bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
-        
+
         CGImageRef newImage = CGBitmapContextCreateImage(newContext);
-        
+
         CGContextRelease(newContext);
         CGColorSpaceRelease(colorSpace);
-        
+
         UIImage *image = [UIImage imageWithCGImage:newImage];
-        
+
         // resize image
         image = [CanvasCamera resizeImage:image toSize:CGSizeMake(352.0, 288.0)];
-        
+
         NSData *imageData = UIImageJPEGRepresentation(image, 1.0);
 #if 0
         //NSString *encodedString = [imageData base64Encoding];
@@ -529,25 +518,25 @@ typedef enum {
 #else
         dispatch_async(dispatch_get_main_queue(), ^{
             @autoreleasepool {
-                
+
                 // Get a file path to save the JPEG
                 static int i = 0;
                 i++;
-                
+
                 NSString *imagePath = [CanvasCamera getFilePath:[NSString stringWithFormat:@"uuid%d", i] ext:@"jpg"];
-                
+
                 if (i > 10)
                 {
                     NSString *prevPath = [CanvasCamera getFilePath:[NSString stringWithFormat:@"uuid%d", i-10] ext:@"jpg"];
                     NSError *error = nil;
                     [[NSFileManager defaultManager] removeItemAtPath:prevPath error:&error];
                 }
-                
+
                 // Write the data to the file
                 [imageData writeToFile:imagePath atomically:YES];
-                
+
                 imagePath = [NSString stringWithFormat:@"file://%@", imagePath];
-                
+
                 //[retValues setObject:strUrl forKey:kDataKey];
                 //[retValues setObject:imagePath forKey:kDataKey];
 
@@ -556,7 +545,7 @@ typedef enum {
             }
         });
 #endif
-        
+
         CGImageRelease(newImage);
         CVPixelBufferUnlockBaseAddress(imageBuffer,0);
     }
@@ -598,10 +587,10 @@ typedef enum {
 	CGContextRef bitmapContext = (CGContextRef)CreateCGBitmapContextForSize(size);
 	CGContextClearRect(bitmapContext, newImageRect);
 	CGContextDrawImage(bitmapContext, newImageRect, srcImage);
-    
+
 	returnImage = CGBitmapContextCreateImage(bitmapContext);
 	CGContextRelease (bitmapContext);
-	
+
 	return returnImage;
 }
 
@@ -628,7 +617,7 @@ typedef enum {
     NSArray* paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString* documentsDirectory = [paths objectAtIndex:0];
     NSString *dataPath = [documentsDirectory stringByAppendingPathComponent:@"/tmp"];
-    
+
     if (![[NSFileManager defaultManager] fileExistsAtPath:dataPath])
     {
         NSError *error = nil;
@@ -649,14 +638,14 @@ typedef enum {
 {
     if (![jsonData isKindOfClass:[NSDictionary class]])
         return;
-    
+
     // get parameters from argument.
-    
+
     // quaility
     NSString *obj = [jsonData objectForKey:kQualityKey];
     if (obj != nil)
         _quality = [obj intValue];
-    
+
     // destination type
     obj = [jsonData objectForKey:kDestinationTypeKey];
     if (obj != nil)
@@ -665,7 +654,7 @@ typedef enum {
         NSLog(@"destinationType = %d", destinationType);
         _destType = destinationType;
     }
-    
+
     // encoding type
     obj = [jsonData objectForKey:kEncodingTypeKey];
     if (obj != nil)
@@ -673,28 +662,28 @@ typedef enum {
         int encodingType = [obj intValue];
         _encodeType = encodingType;
     }
-    
+
     // width
     obj = [jsonData objectForKey:kWidthKey];
     if (obj != nil)
     {
         _width = [obj intValue];
     }
-    
+
     // height
     obj = [jsonData objectForKey:kHeightKey];
     if (obj != nil)
     {
         _height = [obj intValue];
     }
-    
+
     // saveToPhotoAlbum
     obj = [jsonData objectForKey:kSaveToPhotoAlbumKey];
     if (obj != nil)
     {
         _saveToPhotoAlbum = [obj boolValue];
     }
-    
+
     // correctOrientation
     obj = [jsonData objectForKey:kCorrectOrientationKey];
     if (obj != nil)
@@ -708,7 +697,7 @@ typedef enum {
 {
     NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
     [dateFormatter setDateFormat:formatString];
-    
+
     return [dateFormatter stringFromDate:convertDate];
 }
 
@@ -746,11 +735,11 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
             CFRelease(destinationData);
         return success;
     }
-    
+
 	const float JPEGCompQuality = quality; // JPEGHigherQuality (0 ~ 1)
 	CFMutableDictionaryRef optionsDict = NULL;
 	CFNumberRef qualityNum = NULL;
-	
+
 	qualityNum = CFNumberCreate(0, kCFNumberFloatType, &JPEGCompQuality);
 	if ( qualityNum ) {
 		optionsDict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -758,13 +747,13 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
 			CFDictionarySetValue(optionsDict, kCGImageDestinationLossyCompressionQuality, qualityNum);
 		CFRelease( qualityNum );
 	}
-	
+
 	CGImageDestinationAddImage( destination, cgImage, optionsDict );
 	success = CGImageDestinationFinalize( destination );
-    
+
 	if ( optionsDict )
 		CFRelease(optionsDict);
-	
+
 	if (!success)
     {
         if (destination)
@@ -773,7 +762,7 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
             CFRelease(destinationData);
         return success;
     }
-	
+
 	CFRetain(destinationData);
 	ALAssetsLibrary *library = [ALAssetsLibrary new];
 	[library writeImageDataToSavedPhotosAlbum:(__bridge id)destinationData metadata:metadata completionBlock:^(NSURL *assetURL, NSError *error) {
@@ -781,7 +770,7 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
 			CFRelease(destinationData);
 	}];
 	//[library release];
-    
+
     if (destination)
         CFRelease(destination);
     if (destinationData)
@@ -798,11 +787,11 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
         destination = CGImageDestinationCreateWithURL(url, kUTTypePNG, 1, NULL);
     else
         destination = CGImageDestinationCreateWithURL(url, kUTTypePNG, 1, NULL);
-    
+
     const float JPEGCompQuality = quality; // JPEGHigherQuality (0 ~ 1)
 	CFMutableDictionaryRef optionsDict = NULL;
 	CFNumberRef qualityNum = NULL;
-	
+
 	qualityNum = CFNumberCreate(0, kCFNumberFloatType, &JPEGCompQuality);
 	if ( qualityNum ) {
 		optionsDict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -810,20 +799,20 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
 			CFDictionarySetValue(optionsDict, kCGImageDestinationLossyCompressionQuality, qualityNum);
 		CFRelease( qualityNum );
 	}
-    
+
     CGImageDestinationAddImage(destination, cgImage, optionsDict);
-    
+
     BOOL success = CGImageDestinationFinalize(destination);
     if (!success) {
         NSLog(@"Failed to write image to %@", path);
     }
-    
-    
+
+
     if ( optionsDict )
 		CFRelease(optionsDict);
-    
+
     CFRelease(destination);
-    
+
     return success;
 }
 
@@ -837,7 +826,7 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
 {
     if (attachments)
         CFRetain(attachments);
-    
+
     ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
     [library writeImageDataToSavedPhotosAlbum:jpegData metadata:(__bridge id)attachments completionBlock:^(NSURL *assetURL, NSError *error) {
         if (attachments)
@@ -850,7 +839,7 @@ static CGFloat DegreesToRadians(CGFloat degrees) {return degrees * M_PI / 180;};
             //
         }
     }];
-    
+
     return YES;
 }
 
@@ -861,9 +850,9 @@ static CGContextRef CreateCGBitmapContextForSize(CGSize size)
     CGContextRef    context = NULL;
     CGColorSpaceRef colorSpace;
     int             bitmapBytesPerRow;
-	
+
     bitmapBytesPerRow = (size.width * 4);
-	
+
     colorSpace = CGColorSpaceCreateDeviceRGB();
     context = CGBitmapContextCreate (NULL,
 									 size.width,
@@ -898,7 +887,7 @@ static OSStatus CreateCGImageFromCVPixelBuffer(CVPixelBufferRef pixelBuffer, CGI
 	CGColorSpaceRef colorspace = NULL;
 	CGDataProviderRef provider = NULL;
 	CGImageRef image = NULL;
-	
+
 	sourcePixelFormat = CVPixelBufferGetPixelFormatType( pixelBuffer );
 	if ( kCVPixelFormatType_32ARGB == sourcePixelFormat )
 		bitmapInfo = kCGBitmapByteOrder32Big | kCGImageAlphaNoneSkipFirst;
@@ -906,20 +895,20 @@ static OSStatus CreateCGImageFromCVPixelBuffer(CVPixelBufferRef pixelBuffer, CGI
 		bitmapInfo = kCGBitmapByteOrder32Little | kCGImageAlphaNoneSkipFirst;
 	else
 		return -95014; // only uncompressed pixel formats
-	
+
 	sourceRowBytes = CVPixelBufferGetBytesPerRow( pixelBuffer );
 	width = CVPixelBufferGetWidth( pixelBuffer );
 	height = CVPixelBufferGetHeight( pixelBuffer );
-	
+
 	CVPixelBufferLockBaseAddress( pixelBuffer, 0 );
 	sourceBaseAddr = CVPixelBufferGetBaseAddress( pixelBuffer );
-	
+
 	colorspace = CGColorSpaceCreateDeviceRGB();
-    
+
 	CVPixelBufferRetain( pixelBuffer );
 	provider = CGDataProviderCreateWithData( (void *)pixelBuffer, sourceBaseAddr, sourceRowBytes * height, ReleaseCVPixelBuffer);
 	image = CGImageCreate(width, height, 8, 32, sourceRowBytes, colorspace, bitmapInfo, provider, NULL, true, kCGRenderingIntentDefault);
-	
+
 bail:
 	if ( err && image ) {
 		CGImageRelease( image );
