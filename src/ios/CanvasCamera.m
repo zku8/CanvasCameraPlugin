@@ -254,18 +254,13 @@ typedef enum {
     }
     else
     {
-        NSString *strDevicePosition = [command.arguments objectAtIndex:0];
-        int devicePosition = [strDevicePosition integerValue];
-        if (devicePosition != AVCaptureFlashModeOff
-            && devicePosition != AVCaptureFlashModeOn
-            && devicePosition != AVCaptureFlashModeAuto)
-        {
-            bParsed = NO;
-            errMsg = @"Invalid parameter";
+        NSString *devicePosition = [command.arguments objectAtIndex:0];
+        if ([devicePosition isEqualToString:@"front"]) {
+            _devicePosition = AVCaptureDevicePositionFront;
+            bParsed = YES;
         }
-        else
-        {
-            _devicePosition = devicePosition;
+        else if ([devicePosition isEqualToString:@"back"]) {
+            _devicePosition = AVCaptureDevicePositionBack;
             bParsed = YES;
         }
     }
