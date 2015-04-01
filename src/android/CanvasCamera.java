@@ -3,6 +3,7 @@ package com.keith.canvascameraplugin;
 import android.app.Activity;
 import android.util.Log;
 import android.util.Size;
+import android.util.SparseIntArray;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.content.Context;
@@ -45,6 +46,30 @@ public class CanvasCamera extends CordovaPlugin
 {
     private final static String TAG = "SimpleCamera";
 
+    /**
+     * Conversion from screen rotation to JPEG orientation for back facing camera.
+     */
+    private static final SparseIntArray BACK_CAMERA_ORIENTATIONS = new SparseIntArray();
+
+    static {
+        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_0, 90);
+        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_180, 270);
+        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_270, 180);
+    }
+
+    /**
+     * Conversion from screen rotation to JPEG orientation for front facing camera.
+     */
+    private static final SparseIntArray FRONT_CAMERA_ORIENTATIONS = new SparseIntArray();
+
+    static {
+        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_0, 270);
+        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_180, 90);
+        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_270, 180);
+    }
+
     private Activity mActivity;
     private CallbackContext mCallbackContext;
 
@@ -53,6 +78,7 @@ public class CanvasCamera extends CordovaPlugin
     private CameraDevice mCamera;
     private String mCameraId;
     private ImageReader mReader = null;
+    private int mFileId = 0;
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
     private SimpleImageListener mListener = null;
@@ -74,6 +100,10 @@ public class CanvasCamera extends CordovaPlugin
             setFlashMode(args, callbackContext);
             return true;
         }
+        else if ("setCameraPosition".equals(action)) {
+            setCameraPosition(args, callbackContext);
+            return true;
+        }
 
         return false;
     }
@@ -86,7 +116,7 @@ public class CanvasCamera extends CordovaPlugin
         Log.d(TAG, "camera manager obtained");
 
         try {
-            mCameraId = mCameraManager.getCameraIdList()[0];
+            mCameraId = getCameraIdForOrientation(CameraCharacteristics.LENS_FACING_BACK);
             startBackgroundThread();
             mCameraManager.openCamera(mCameraId, cameraStateCallback, null);
 
@@ -137,7 +167,42 @@ public class CanvasCamera extends CordovaPlugin
             callbackContext.success();
         }
         catch (Exception e){
-            callbackContext.error("Failed to stop capture");
+            callbackContext.error("Failed to set flash mode");
+        }
+    }
+
+    private void setCameraPosition(JSONArray args, CallbackContext callbackContext)
+    {
+        try {
+            String cameraPosition = args.getString(0);
+
+            Log.d(TAG, "camera is gonna be switched to " + cameraPosition);
+
+            int lensOrientation = CameraCharacteristics.LENS_FACING_BACK;
+
+            if (cameraPosition.equals("front")) {
+                lensOrientation = CameraCharacteristics.LENS_FACING_FRONT;
+            }
+
+            mCameraId = getCameraIdForOrientation(lensOrientation);
+
+            if (mCameraId != null) {
+                stopBackgroundThread();
+                mCameraSession.close();
+                mCamera.close();
+
+                startBackgroundThread();
+                mCameraManager.openCamera(mCameraId, cameraStateCallback, null);
+
+                Log.d(TAG, "camera switched");
+                callbackContext.success();
+            }
+            else {
+                callbackContext.error("Failed to switch camera");
+            }
+        }
+        catch (Exception e){
+            callbackContext.error("Failed to switch camera");
         }
     }
 
@@ -157,12 +222,12 @@ public class CanvasCamera extends CordovaPlugin
                     CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
                 Size[] outputSizes = map.getOutputSizes(ImageFormat.JPEG);
-                Size previewSize = outputSizes[outputSizes.length - 1];
+                Size previewSize = chooseOptimalSize(outputSizes, 352, 288);
 
                 Log.d(TAG, "Creating ImageReader with size " + previewSize.toString() + " for camera " + mCameraId);
 
                 mReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(),
-                    ImageFormat.JPEG, /*maxImages*/10);
+                    ImageFormat.JPEG, /*maxImages*/2);
 
                 mListener  = new SimpleImageListener();
 
@@ -221,6 +286,23 @@ public class CanvasCamera extends CordovaPlugin
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
 
             captureBuilder.addTarget(surface);
+            captureBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE,
+                                CaptureRequest.COLOR_CORRECTION_MODE_FAST);
+
+            int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+
+            CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
+            int orientation = characteristics.get(CameraCharacteristics.LENS_FACING);
+            if(orientation == CameraCharacteristics.LENS_FACING_FRONT) {
+                rotation = FRONT_CAMERA_ORIENTATIONS.get(rotation);
+            }
+            else {
+                rotation = BACK_CAMERA_ORIENTATIONS.get(rotation);
+            }
+
+            Log.d(TAG, "Rotation: " + rotation);
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, rotation);
+
             captureBuilder.set(CaptureRequest.FLASH_MODE, flashMode);
 
             return captureBuilder.build();
@@ -229,6 +311,29 @@ public class CanvasCamera extends CordovaPlugin
             e.printStackTrace();
             return null;
         }
+    }
+
+    private String getCameraIdForOrientation(int cameraFacingOrientation) {
+        try {
+            String[] cameraIdList = mCameraManager.getCameraIdList();
+
+            for(final String cameraId : cameraIdList) {
+                CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
+                int orientation = characteristics.get(CameraCharacteristics.LENS_FACING);
+                if(orientation == cameraFacingOrientation) {
+                    return cameraId;
+                }
+            }
+
+            if (cameraIdList.length > 0) {
+                return cameraIdList[0];
+            }
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return null;
     }
 
     private void startBackgroundThread() {
@@ -252,8 +357,6 @@ public class CanvasCamera extends CordovaPlugin
     }
 
     private class SimpleImageListener implements ImageReader.OnImageAvailableListener {
-        private int mFileId = 0;
-
         @Override
         public void onImageAvailable(ImageReader reader) {
             Image img = reader.acquireLatestImage();
@@ -303,6 +406,20 @@ public class CanvasCamera extends CordovaPlugin
                 }
             }
         }
+    }
+
+    private static Size chooseOptimalSize(Size[] choices, int width, int height) {
+        Size bigEnough = choices[0];
+        for (Size option : choices) {
+            if (option.getWidth() >= width && option.getHeight() >= height
+                && option.getWidth() < bigEnough.getWidth()
+                && option.getHeight() < bigEnough.getHeight()
+            ) {
+                bigEnough = option;
+            }
+        }
+
+        return bigEnough;
     }
 
 }
