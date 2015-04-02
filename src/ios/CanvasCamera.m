@@ -38,15 +38,13 @@
 - (void)startCapture:(CDVInvokedUrlCommand *)command
 {
     CDVPluginResult *pluginResult = nil;
-    NSString *resultJS = nil;
 
     // check already started
     if (self.session && bIsStarted)
     {
         // failure callback
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Already started"];
-        resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-        [self writeJavascript:resultJS];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 
         return;
     }
@@ -86,14 +84,12 @@
 
     // success callback
     pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-    resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
-    [self writeJavascript:resultJS];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
 - (void)stopCapture:(CDVInvokedUrlCommand *)command
 {
     CDVPluginResult *pluginResult = nil;
-    NSString *resultJS = nil;
 
     if (self.session)
     {
@@ -104,8 +100,7 @@
 
         // success callback
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-        resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
-        [self writeJavascript:resultJS];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
     }
     else
     {
@@ -113,15 +108,13 @@
 
         // failure callback
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Already stopped"];
-        resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-        [self writeJavascript:resultJS];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
     }
 }
 
 - (void)setFlashMode:(CDVInvokedUrlCommand *)command
 {
     CDVPluginResult *pluginResult = nil;
-    NSString *resultJS = nil;
 
     NSString *errMsg = @"";
     BOOL bParsed = NO;
@@ -183,28 +176,24 @@
         {
             // success callback
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-            resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
-            [self writeJavascript:resultJS];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
         else
         {
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:errMsg];
-            resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-            [self writeJavascript:resultJS];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
     }
     else
     {
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:errMsg];
-        resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-        [self writeJavascript:resultJS];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
     }
 }
 
 - (void)setCameraPosition:(CDVInvokedUrlCommand *)command
 {
     CDVPluginResult *pluginResult = nil;
-    NSString *resultJS = nil;
 
     NSString *errMsg = @"";
     BOOL bParsed = NO;
@@ -256,15 +245,13 @@
 
                 // success callback
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-                resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
-                [self writeJavascript:resultJS];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
             }
             else
             {
                 // success callback
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-                resultJS = [pluginResult toSuccessCallbackString:command.callbackId];
-                [self writeJavascript:resultJS];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
             }
 
 
@@ -273,8 +260,7 @@
         {
             errMsg = @"Capture stopped";
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:errMsg];
-            resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-            [self writeJavascript:resultJS];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
 
 
@@ -282,8 +268,7 @@
     else
     {
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:errMsg];
-        resultJS = [pluginResult toErrorCallbackString:command.callbackId];
-        [self writeJavascript:resultJS];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
     }
 }
 
