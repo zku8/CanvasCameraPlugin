@@ -56,28 +56,36 @@ CanvasCamera.prototype.drawImage = function() {
     var context = this._context;
     var canvasWidth = this._obj.width = this._obj.clientWidth;
     var canvasHeight = this._obj.height = this._obj.clientHeight;
+
+    var desiredWidth = canvasWidth;
+    var desiredHeight = canvasHeight;
+    if (window.orientation != 90 && window.orientation != -90) {
+        desiredWidth = canvasHeight;
+        desiredHeight = canvasWidth;
+    }
+
     var imageWidth = image.width;
     var imageHeight = image.height;
-    var ratio = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+    var ratio = Math.min(desiredWidth / imageWidth, desiredHeight / imageHeight);
     var newWidth = imageWidth * ratio;
     var newHeight = imageHeight * ratio;
     var cropX, cropY, cropWidth, cropHeight, aspectRatio = 1;
 
-    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    context.clearRect(0, 0, desiredWidth, desiredHeight);
 
     // decide which gap to fill
-    if (newWidth < canvasWidth) {
-        aspectRatio = canvasWidth / newWidth;
+    if (newWidth < desiredWidth) {
+        aspectRatio = desiredWidth / newWidth;
     }
-    if (newHeight < canvasHeight) {
-        aspectRatio = canvasHeight / newHeight;
+    if (newHeight < desiredHeight) {
+        aspectRatio = desiredHeight / newHeight;
     }
     newWidth *= aspectRatio;
     newHeight *= aspectRatio;
 
     // calc source rectangle
-    cropWidth = imageWidth / (newWidth / canvasWidth);
-    cropHeight = imageHeight / (newHeight / canvasHeight);
+    cropWidth = imageWidth / (newWidth / desiredWidth);
+    cropHeight = imageHeight / (newHeight / desiredHeight);
 
     cropX = (imageWidth - cropWidth) * 0.5;
     cropY = (imageHeight - cropHeight) * 0.5;
@@ -103,7 +111,7 @@ CanvasCamera.prototype.drawImage = function() {
     // fill image in dest. rectangle
     context.drawImage(image,
         cropX, cropY, cropWidth, cropHeight,
-        -canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
+        -desiredWidth / 2, -desiredHeight / 2, desiredWidth, desiredHeight);
 
     context.restore();
 };
