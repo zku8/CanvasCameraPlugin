@@ -12,22 +12,12 @@ var CanvasCamera = function(){
     var _context = null;
     var _camImage = null;
     var _cameraPosition = null;
-
-    var _width = 0;
-    var _height = 0;
 };
 
-CanvasCamera.prototype.initialize = function(obj, width, height) {
+CanvasCamera.prototype.initialize = function(obj) {
     this._obj = obj;
     this._cameraPosition = 'back';
     this._context = obj.getContext("2d");
-
-    this._width = width;
-    this._height = height;
-    this._obj.width = width;
-    this._obj.height = height;
-    this._obj.style.width = width + 'px';
-    this._obj.style.height = height + 'px';
 
     this._camImage = new Image();
     this._camImage.onload = function() {
@@ -64,8 +54,8 @@ CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
 CanvasCamera.prototype.drawImage = function() {
     var image = this._camImage;
     var context = this._context;
-    var canvasWidth = this._width;
-    var canvasHeight = this._height;
+    var canvasWidth = this._obj.width = this._obj.clientWidth;
+    var canvasHeight = this._obj.height = this._obj.clientHeight;
     var imageWidth = image.width;
     var imageHeight = image.height;
     var ratio = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
