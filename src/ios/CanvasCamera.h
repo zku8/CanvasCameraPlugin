@@ -22,14 +22,10 @@
 @property (nonatomic, strong) AVCaptureVideoDataOutput *output;
 @property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
 
-
 - (void)startCapture:(CDVInvokedUrlCommand *)command;
 - (void)stopCapture:(CDVInvokedUrlCommand *)command;
 
 - (void)setFlashMode:(CDVInvokedUrlCommand *)command;
 - (void)setCameraPosition:(CDVInvokedUrlCommand *)command;
-
-- (void)captureImage:(CDVInvokedUrlCommand *)command;
-
 
 @end

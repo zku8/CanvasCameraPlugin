@@ -63,7 +63,7 @@ Have to call [initialize][initialize] with canvas object(canvas tag to preview c
 
 ```javascript
 document.addEventListener('deviceready', function () {
-    
+
     // have to call initialize function with canvas object
     var objCanvas = document.getElementById("canvas");
     window.plugin.CanvasCamera.initialize(objCanvas);
@@ -133,7 +133,7 @@ window.plugin.CanvasCamera.setFlashMode(flashMode);
 ##### flashMode
 Value of flashMode can be one of the followings;
 ```javascript
-CanvasCamera.FlashMode = 
+CanvasCamera.FlashMode =
 {
     OFF : 0,
     ON : 1,
@@ -173,7 +173,7 @@ window.plugin.CanvasCamera.setCameraPosition(CanvasCamera.CameraPosition.FRONT);
 ### options
 Optional parameters to customize the settings.
 ```javascript
-{ quality : 75, 
+{ quality : 75,
   destinationType : CanvasCamera.DestinationType.DATA_URL,
   sourceType : CanvasCamera.PictureSourceType.CAMERA,
   allowEdit : true,
@@ -235,15 +235,15 @@ CanvasCamera.PictureSourceType = {
                 <p class="event listening">Connecting to Device</p>
                 <p class="event received">Device is Ready</p>
             </div>
-            
+
             <h2> Camera Position </h2>
             <input type="radio" name="deviceposition" id="deviceposition_back" value="Back" onclick="onChangeDevicePosition();"/>
             <label for="deviceposition_back">Back</label>
             <br/>
             <input type="radio" name="deviceposition" id="deviceposition_front" value="Front" onclick="onChangeDevicePosition();"/>
             <label for="deviceposition_front">Front</label>
-            
-            
+
+
             <h2> Flash Mode </h2>
             <input type="radio" name="flashmode" id="flashmode_off" value="Off" onclick="onChangeFlashMode();"/>
             <label for="flashmode_off">Off</label>
@@ -254,21 +254,21 @@ CanvasCamera.PictureSourceType = {
             <input type="radio" name="flashmode" id="flashmode_auto" value="Auto" onclick="onChangeFlashMode();"/>
             <label for="flashmode_auto">Auto</label>
             <br/>
-            
+
             <input type="button" value="Take a picture" onclick="onTakePicture();" />
 
 
         </div>
-        
+
 	<!— camera preview canvas —>
         <canvas id="camera" width="352" height="288" style="border:2px"></canvas>
-        
+
         <script type="text/javascript" src="cordova.js"></script>
         <script type="text/javascript" src="js/index.js"></script>
         <script type="text/javascript">
             app.initialize();
         </script>
-        
+
         <script>
             document.addEventListener("deviceready", function() {
                                           canvasMain = document.getElementById("camera");
@@ -285,7 +285,7 @@ CanvasCamera.PictureSourceType = {
                                           };
                                           CanvasCamera.start(opt);
                                       });
-      
+
             function onChangeDevicePosition() {
 
                 var newDevicePosition = CanvasCamera.CameraPosition.BACK;
@@ -300,9 +300,9 @@ CanvasCamera.PictureSourceType = {
                 //
                 CanvasCamera.setCameraPosition(newDevicePosition);
             }
-            
+
             function onChangeFlashMode() {
-                
+
                 var newFlashMode = CanvasCamera.FlashMode.OFF;
                 if (document.getElementById("flashmode_off").checked)
                 {
@@ -316,14 +316,14 @@ CanvasCamera.PictureSourceType = {
                 {
                     newFlashMode = CanvasCamera.FlashMode.AUTO;
                 }
-                
+
                 CanvasCamera.setFlashMode(newFlashMode);
             }
-            
+
             function onTakePicture() {
                 CanvasCamera.takePicture(onTakeSuccess);
             }
-            
+
             function onTakeSuccess(data) {
                 //
             }
