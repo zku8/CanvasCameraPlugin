@@ -44,31 +44,7 @@ import java.nio.ByteBuffer;
 
 public class CanvasCamera extends CordovaPlugin
 {
-    private final static String TAG = "SimpleCamera";
-
-    /**
-     * Conversion from screen rotation to JPEG orientation for back facing camera.
-     */
-    private static final SparseIntArray BACK_CAMERA_ORIENTATIONS = new SparseIntArray();
-
-    static {
-        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_0, 90);
-        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_90, 0);
-        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_180, 270);
-        BACK_CAMERA_ORIENTATIONS.append(Surface.ROTATION_270, 180);
-    }
-
-    /**
-     * Conversion from screen rotation to JPEG orientation for front facing camera.
-     */
-    private static final SparseIntArray FRONT_CAMERA_ORIENTATIONS = new SparseIntArray();
-
-    static {
-        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_0, 270);
-        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_90, 0);
-        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_180, 90);
-        FRONT_CAMERA_ORIENTATIONS.append(Surface.ROTATION_270, 180);
-    }
+    private final static String TAG = "CanvasCamera";
 
     private Activity mActivity;
     private CallbackContext mCallbackContext;
@@ -84,24 +60,41 @@ public class CanvasCamera extends CordovaPlugin
     private SimpleImageListener mListener = null;
 
     @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException
+    public boolean execute(String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException
     {
+        mActivity = this.cordova.getActivity();
+
         if ("startCapture".equals(action)) {
-            if (args.length() > 0)
-                startCapture(args, callbackContext);
+            mActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    startCapture(args, callbackContext);
+                }
+            });
 
             return true;
         }
         else if ("stopCapture".equals(action)) {
-            stopCapture(args, callbackContext);
+            mActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    stopCapture(args, callbackContext);
+                }
+            });
             return true;
         }
         else if ("setFlashMode".equals(action)) {
-            setFlashMode(args, callbackContext);
+            mActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    setFlashMode(args, callbackContext);
+                }
+            });
             return true;
         }
         else if ("setCameraPosition".equals(action)) {
-            setCameraPosition(args, callbackContext);
+            mActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    setCameraPosition(args, callbackContext);
+                }
+            });
             return true;
         }
 
@@ -110,8 +103,6 @@ public class CanvasCamera extends CordovaPlugin
 
     private void startCapture(JSONArray args, CallbackContext callbackContext)
     {
-        mActivity = this.cordova.getActivity();
-
         mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
         Log.d(TAG, "camera manager obtained");
 
@@ -294,10 +285,10 @@ public class CanvasCamera extends CordovaPlugin
             CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
             int orientation = characteristics.get(CameraCharacteristics.LENS_FACING);
             if(orientation == CameraCharacteristics.LENS_FACING_FRONT) {
-                rotation = FRONT_CAMERA_ORIENTATIONS.get(rotation);
+                rotation = 180;
             }
             else {
-                rotation = BACK_CAMERA_ORIENTATIONS.get(rotation);
+                rotation = 0;
             }
 
             Log.d(TAG, "Rotation: " + rotation);
@@ -360,25 +351,27 @@ public class CanvasCamera extends CordovaPlugin
         @Override
         public void onImageAvailable(ImageReader reader) {
             Image img = reader.acquireLatestImage();
-            Log.d(TAG, "New image available! With width: " + img.getWidth());
+            if (img != null) {
+                Log.d(TAG, "New image available! With width: " + img.getWidth());
 
-            mFileId++;
+                mFileId++;
 
-            File file = new File(mActivity.getExternalFilesDir(null), mFileId + ".jpg");
+                File file = new File(mActivity.getExternalFilesDir(null), mFileId + ".jpg");
 
-            if (mFileId > 10)
-            {
-                File prevFile = new File(mActivity.getExternalFilesDir(null), (mFileId - 10) + ".jpg");
-                prevFile.delete();
+                if (mFileId > 10)
+                {
+                    File prevFile = new File(mActivity.getExternalFilesDir(null), (mFileId - 10) + ".jpg");
+                    prevFile.delete();
+                }
+
+                saveImage(img, file);
+
+                PluginResult result = new PluginResult(PluginResult.Status.OK,
+                            file.getPath());
+
+                result.setKeepCallback(true);
+                mCallbackContext.sendPluginResult(result);
             }
-
-            saveImage(img, file);
-
-            PluginResult result = new PluginResult(PluginResult.Status.OK,
-                        file.getPath());
-
-            result.setKeepCallback(true);
-            mCallbackContext.sendPluginResult(result);
         }
     }
 

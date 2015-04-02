@@ -6,113 +6,121 @@
 //
 //  MIT License
 
-cordova.define("cordova/plugin/CanvasCamera", function(require, exports, module) {
-    var exec = require('cordova/exec');
-    var CanvasCamera = function(){
-        var _obj = null;
-        var _context = null;
-        var _camImage = null;
+var exec = require('cordova/exec');
+var CanvasCamera = function(){
+    var _obj = null;
+    var _context = null;
+    var _camImage = null;
+    var _cameraPosition = null;
 
-        var _width = 0;
-        var _height = 0;
-    };
+    var _width = 0;
+    var _height = 0;
+};
 
-    CanvasCamera.prototype.initialize = function(obj) {
-        var _this = this;
-        this._obj = obj;
+CanvasCamera.prototype.initialize = function(obj, width, height) {
+    this._obj = obj;
+    this._cameraPosition = 'back';
+    this._context = obj.getContext("2d");
 
-        this._context = obj.getContext("2d");
+    this._width = width;
+    this._height = height;
+    this._obj.width = width;
+    this._obj.height = height;
+    this._obj.style.width = width + 'px';
+    this._obj.style.height = height + 'px';
 
-        this._camImage = new Image();
-
-        this._camImage.onload = function() {
-            var image = this;
-            var canvasWidth = _this._width;
-            var canvasHeight = _this._height;
-            var imageWidth = image.width;
-            var imageHeight = image.height;
-            var ratio = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
-            var newWidth = imageWidth * ratio;
-            var newHeight = imageHeight * ratio;
-            var cutX, cutY, cutWidth, cutHeight, aspectRatio = 1;
-
-            _this._context.clearRect(0, 0, canvasWidth, canvasHeight);
-
-            /// decide which gap to fill
-            if (newWidth < canvasWidth) {
-                aspectRatio = canvasWidth / newWidth;
-            }
-            if (newHeight < canvasHeight) {
-                aspectRatio = canvasHeight / newHeight;
-            }
-            newWidth *= aspectRatio;
-            newHeight *= aspectRatio;
-
-            /// calc source rectangle
-            cutWidth = imageWidth / (newWidth / canvasWidth);
-            cutHeight = imageHeight / (newHeight / canvasHeight);
-
-            cutX = (imageWidth - cutWidth) * 0.5;
-            cutY = (imageHeight - cutHeight) * 0.5;
-
-            /// make sure source rectangle is valid
-            if (cutX < 0) cutX = 0;
-            if (cutY < 0) cutY = 0;
-            if (cutWidth > imageWidth) cutWidth = imageWidth;
-            if (cutHeight > imageHeight) cutHeight = imageHeight;
-
-            /// fill image in dest. rectangle
-            _this._context.drawImage(image,
-                cutX, cutY, cutWidth, cutHeight,
-                0, 0, canvasWidth, canvasHeight);
-        };
-
-        var pixelRatio = window.devicePixelRatio || 1; /// get pixel ratio of device
-        console.log('pixelRatio=' + pixelRatio);
-
-        this._width = 200;
-        this._height = 200;
-        this._obj.width = 200;// * pixelRatio;   /// resolution of canvas
-        this._obj.height = 200;// * pixelRatio;
-
-        this._obj.style.width = 200 + 'px';   /// CSS size of canvas
-        this._obj.style.height = 200 + 'px';
-    };
+    this._camImage = new Image();
+    this._camImage.onload = function() {
+        this.drawImage();
+    }.bind(this);
+};
 
 
-    CanvasCamera.prototype.start = function(options) {
-        cordova.exec(function(imgData){
-            if (imgData) {
-                this._camImage.src = imgData;
-            }
-        }.bind(this), false, "CanvasCamera", "startCapture", [options]);
-    };
+CanvasCamera.prototype.start = function(options) {
+    cordova.exec(this.capture.bind(this), false, "CanvasCamera", "startCapture", [options]);
+};
 
-    CanvasCamera.prototype.stop = function() {
-        cordova.exec(false, false, "CanvasCamera", "stopCapture", []);
-    };
+CanvasCamera.prototype.stop = function() {
+    cordova.exec(false, false, "CanvasCamera", "stopCapture", []);
+};
 
 
-    CanvasCamera.prototype.capture = function(imgData) {
+CanvasCamera.prototype.capture = function(imgData) {
+    if (imgData) {
         this._camImage.src = imgData;
-    };
+    }
+};
 
-    CanvasCamera.prototype.setFlashMode = function(flashMode) {
-        cordova.exec(function(){}, function(){}, "CanvasCamera", "setFlashMode", [flashMode]);
-    };
+CanvasCamera.prototype.setFlashMode = function(flashMode) {
+    cordova.exec(function(){}, function(){}, "CanvasCamera", "setFlashMode", [flashMode]);
+};
 
-    CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
-        cordova.exec(function(){}, function(){}, "CanvasCamera", "setCameraPosition", [cameraPosition]);
-    };
+CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
+    cordova.exec(function(){
+        this._cameraPosition = cameraPosition;
+    }.bind(this), function(){}, "CanvasCamera", "setCameraPosition", [cameraPosition]);
+};
 
-    CanvasCamera.prototype.takePicture = function(onsuccess) {
-        cordova.exec(onsuccess, function(){}, "CanvasCamera", "captureImage", []);
-    };
+CanvasCamera.prototype.takePicture = function(onsuccess) {
+    cordova.exec(onsuccess, function(){}, "CanvasCamera", "captureImage", []);
+};
 
-    var myplugin = new CanvasCamera();
-    module.exports = myplugin;
-});
+CanvasCamera.prototype.drawImage = function() {
+    var image = this._camImage;
+    var context = this._context;
+    var canvasWidth = this._width;
+    var canvasHeight = this._height;
+    var imageWidth = image.width;
+    var imageHeight = image.height;
+    var ratio = Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight);
+    var newWidth = imageWidth * ratio;
+    var newHeight = imageHeight * ratio;
+    var cropX, cropY, cropWidth, cropHeight, aspectRatio = 1;
 
-var CanvasCamera = cordova.require("cordova/plugin/CanvasCamera");
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
 
+    // decide which gap to fill
+    if (newWidth < canvasWidth) {
+        aspectRatio = canvasWidth / newWidth;
+    }
+    if (newHeight < canvasHeight) {
+        aspectRatio = canvasHeight / newHeight;
+    }
+    newWidth *= aspectRatio;
+    newHeight *= aspectRatio;
+
+    // calc source rectangle
+    cropWidth = imageWidth / (newWidth / canvasWidth);
+    cropHeight = imageHeight / (newHeight / canvasHeight);
+
+    cropX = (imageWidth - cropWidth) * 0.5;
+    cropY = (imageHeight - cropHeight) * 0.5;
+
+    // make sure source rectangle is valid
+    if (cropX < 0) cropX = 0;
+    if (cropY < 0) cropY = 0;
+    if (cropWidth > imageWidth) cropWidth = imageWidth;
+    if (cropHeight > imageHeight) cropHeight = imageHeight;
+
+    // rotate context according to orientation
+    context.save();
+    context.translate(canvasWidth / 2, canvasHeight / 2);
+    context.rotate((90 - window.orientation) * Math.PI/180);
+
+    // additional rotate for front facing camera in lanscape orientation
+    if (this._cameraPosition === 'front' &&
+        (window.orientation === 90 || window.orientation === -90))
+    {
+        context.rotate((180) * Math.PI/180);
+    }
+
+    // fill image in dest. rectangle
+    context.drawImage(image,
+        cropX, cropY, cropWidth, cropHeight,
+        -canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
+
+    context.restore();
+};
+
+var CanvasCamera = new CanvasCamera();
 module.exports = CanvasCamera;
