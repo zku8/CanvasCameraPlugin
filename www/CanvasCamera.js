@@ -61,10 +61,6 @@ CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
     }.bind(this), function(){}, "CanvasCamera", "setCameraPosition", [cameraPosition]);
 };
 
-CanvasCamera.prototype.takePicture = function(onsuccess) {
-    cordova.exec(onsuccess, function(){}, "CanvasCamera", "captureImage", []);
-};
-
 CanvasCamera.prototype.drawImage = function() {
     var image = this._camImage;
     var context = this._context;
