@@ -45,6 +45,9 @@ import java.nio.ByteBuffer;
 public class CanvasCamera extends CordovaPlugin
 {
     private final static String TAG = "CanvasCamera";
+    private final static String kLensOrientationKey = "cameraPosition";
+    private final static String kWidthKey = "width";
+    private final static String kHeightKey = "height";
 
     private Activity mActivity;
     private CallbackContext mCallbackContext;
@@ -58,6 +61,10 @@ public class CanvasCamera extends CordovaPlugin
     private HandlerThread mBackgroundThread;
     private Handler mBackgroundHandler;
     private SimpleImageListener mListener = null;
+
+    private int mLensOrientation;
+    private int mWidth;
+    private int mHeight;
 
     @Override
     public boolean execute(String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException
@@ -103,11 +110,27 @@ public class CanvasCamera extends CordovaPlugin
 
     private void startCapture(JSONArray args, CallbackContext callbackContext)
     {
+        String cameraPosition = "";
+
+        // init parameters - default values
+        mWidth = 352;
+        mHeight = 288;
+        mLensOrientation = CameraCharacteristics.LENS_FACING_BACK;
+
+        // parse options
+        try {
+            JSONObject jsonData = args.getJSONObject(0);
+            getOptions(jsonData);
+        }
+        catch(Exception e) {
+            Log.e("CanvasCamera", "Parsing options error: " + e.getMessage());
+        }
+
         mCameraManager = (CameraManager) mActivity.getSystemService(Context.CAMERA_SERVICE);
         Log.d(TAG, "camera manager obtained");
 
         try {
-            mCameraId = getCameraIdForOrientation(CameraCharacteristics.LENS_FACING_BACK);
+            mCameraId = getCameraIdForOrientation(mLensOrientation);
             startBackgroundThread();
             mCameraManager.openCamera(mCameraId, cameraStateCallback, null);
 
@@ -167,15 +190,16 @@ public class CanvasCamera extends CordovaPlugin
         try {
             String cameraPosition = args.getString(0);
 
-            Log.d(TAG, "camera is gonna be switched to " + cameraPosition);
-
-            int lensOrientation = CameraCharacteristics.LENS_FACING_BACK;
+            Log.d(TAG, "Camera is going to be switched to " + cameraPosition);
 
             if (cameraPosition.equals("front")) {
-                lensOrientation = CameraCharacteristics.LENS_FACING_FRONT;
+                mLensOrientation = CameraCharacteristics.LENS_FACING_FRONT;
+            }
+            else {
+                mLensOrientation = CameraCharacteristics.LENS_FACING_BACK;
             }
 
-            mCameraId = getCameraIdForOrientation(lensOrientation);
+            mCameraId = getCameraIdForOrientation(mLensOrientation);
 
             if (mCameraId != null) {
                 stopBackgroundThread();
@@ -213,7 +237,7 @@ public class CanvasCamera extends CordovaPlugin
                     CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
                 Size[] outputSizes = map.getOutputSizes(ImageFormat.JPEG);
-                Size previewSize = chooseOptimalSize(outputSizes, 352, 288);
+                Size previewSize = chooseOptimalSize(outputSizes, mWidth, mHeight);
 
                 Log.d(TAG, "Creating ImageReader with size " + previewSize.toString() + " for camera " + mCameraId);
 
@@ -311,6 +335,10 @@ public class CanvasCamera extends CordovaPlugin
             for(final String cameraId : cameraIdList) {
                 CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
                 int orientation = characteristics.get(CameraCharacteristics.LENS_FACING);
+
+                Log.d(TAG, "Orientation: " + orientation + " with cameraId: " + cameraId);
+                Log.d(TAG, "Desired orientation: " + cameraFacingOrientation);
+
                 if(orientation == cameraFacingOrientation) {
                     return cameraId;
                 }
@@ -413,6 +441,39 @@ public class CanvasCamera extends CordovaPlugin
         }
 
         return bigEnough;
+    }
+
+    private void getOptions(JSONObject jsonData) throws Exception
+    {
+        if (jsonData == null)
+            return;
+
+        // get parameters from argument.
+
+        // lens orientation
+        String obj = jsonData.getString(kLensOrientationKey);
+        if (obj != null) {
+            if (obj.equals("front")) {
+                mLensOrientation = CameraCharacteristics.LENS_FACING_FRONT;
+            }
+            else {
+                mLensOrientation = CameraCharacteristics.LENS_FACING_BACK;
+            }
+        }
+
+        // width
+        obj = jsonData.getString(kWidthKey);
+        if (obj != null)
+        {
+            mWidth = Integer.parseInt(obj);
+        }
+
+        // height
+        obj = jsonData.getString(kHeightKey);
+        if (obj != null)
+        {
+            mHeight = Integer.parseInt(obj);
+        }
     }
 
 }

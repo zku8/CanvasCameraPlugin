@@ -11,12 +11,10 @@ var CanvasCamera = function(){
     var _obj = null;
     var _context = null;
     var _camImage = null;
-    var _cameraPosition = null;
 };
 
 CanvasCamera.prototype.initialize = function(obj) {
     this._obj = obj;
-    this._cameraPosition = 'back';
     this._context = obj.getContext("2d");
 
     this._camImage = new Image();
