@@ -10,9 +10,10 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 
 // parameter
-#define kQualityKey      @"quality"
-#define kWidthKey        @"width"
-#define kHeightKey       @"height"
+#define kQualityKey         @"quality"
+#define kWidthKey           @"width"
+#define kHeightKey          @"height"
+#define kDevicePositionKey  @"cameraPosition"
 
 @interface CanvasCamera () {
     dispatch_queue_t queue;
@@ -53,6 +54,7 @@
     _quality = 85;
     _width = 640;
     _height = 480;
+    _devicePosition = AVCaptureDevicePositionBack;
 
     // parse options
     if ([command.arguments count] > 0)
@@ -65,7 +67,7 @@
     self.session = [[AVCaptureSession alloc] init];
     self.session.sessionPreset = AVCaptureSessionPresetPhoto;
 
-    self.device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    self.device = [self cameraWithPosition: _devicePosition];
     self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
 
     self.output = [[AVCaptureVideoDataOutput alloc] init];
@@ -381,24 +383,31 @@
 
     // get parameters from argument.
 
+    // device position
+    NSString *obj = [jsonData objectForKey:kDevicePositionKey];
+    if (obj != nil) {
+        if ([obj isEqualToString:@"front"]) {
+            _devicePosition = AVCaptureDevicePositionFront;
+        }
+        else {
+            _devicePosition = AVCaptureDevicePositionBack;
+        }
+    }
+
     // quaility
-    NSString *obj = [jsonData objectForKey:kQualityKey];
+    obj = [jsonData objectForKey:kQualityKey];
     if (obj != nil)
         _quality = [obj intValue];
 
     // width
     obj = [jsonData objectForKey:kWidthKey];
     if (obj != nil)
-    {
         _width = [obj intValue];
-    }
 
     // height
     obj = [jsonData objectForKey:kHeightKey];
     if (obj != nil)
-    {
         _height = [obj intValue];
-    }
 }
 
 + (UIImage *)resizeImage:(UIImage *)image toSize:(CGSize)newSize
