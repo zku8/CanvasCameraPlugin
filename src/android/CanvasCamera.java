@@ -280,16 +280,16 @@ public class CanvasCamera extends CordovaPlugin
 
             int surfaceRotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
 
+            int correction = cameraInfo.orientation - 90;
+
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                 switch (surfaceRotation) {
-                    case Surface.ROTATION_0: mRotation = 180; break;
-                    case Surface.ROTATION_90: mRotation = 0; break;
-                    case Surface.ROTATION_180: mRotation = 180; break;
-                    case Surface.ROTATION_270: mRotation = 0; break;
+                    case Surface.ROTATION_90: correction += 180; break;
+                    case Surface.ROTATION_270: correction += 180; break;
                 }
-            } else {  // back-facing
-                mRotation = 0;
             }
+
+            mRotation = correction;
         }
     }
 
@@ -320,7 +320,7 @@ public class CanvasCamera extends CordovaPlugin
         } else {
             result = params.getSupportedFocusModes().get(0);
         }
-        
+
         return result;
     }
 
