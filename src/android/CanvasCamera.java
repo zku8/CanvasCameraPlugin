@@ -3,6 +3,7 @@ package com.keith.canvascameraplugin;
 import android.app.Activity;
 import android.util.Log;
 import android.util.Size;
+import java.util.List;
 import android.util.SparseIntArray;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -295,33 +296,47 @@ public class CanvasCamera extends CordovaPlugin
     private void setPreviewParameters(Camera camera) {
         Camera.Parameters params = camera.getParameters();
 
-        Camera.Size previewSize = getSmallestPictureSize(params);
+        Camera.Size previewSize = getOptimalPictureSize(params);
         mPreviewWidth = previewSize.width;
         mPreviewHeight = previewSize.height;
+        params.setPreviewSize(mPreviewWidth, mPreviewHeight);
+
+        String focusMode = getOptimalFocusMode(params);
+        params.setFocusMode(focusMode);
+
+        camera.setParameters(params);
 
         mPreviewFormat = params.getPreviewFormat();
-
-        params.setPreviewSize(mPreviewWidth, mPreviewHeight);
-        camera.setParameters(params);
     }
 
-    private Camera.Size getSmallestPictureSize(Camera.Parameters params) {
-        Camera.Size result=null;
+    private String getOptimalFocusMode(Camera.Parameters params) {
+        String result;
+        List<String> focusModes = params.getSupportedFocusModes();
+
+        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
+            result = Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO;
+        } else if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            result = Camera.Parameters.FOCUS_MODE_AUTO;
+        } else {
+            result = params.getSupportedFocusModes().get(0);
+        }
+        
+        return result;
+    }
+
+    private Camera.Size getOptimalPictureSize(Camera.Parameters params) {
+        Camera.Size bigEnough = params.getSupportedPictureSizes().get(0);
 
         for (Camera.Size size : params.getSupportedPictureSizes()) {
-            if (result == null) {
-                result = size;
-            } else {
-                int resultArea = result.width * result.height;
-                int newArea = size.width * size.height;
-
-                if (newArea < resultArea) {
-                    result = size;
-                }
+            if (size.width >= mWidth && size.height >= mHeight
+                && size.width < bigEnough.width
+                && size.height < bigEnough.height
+            ) {
+                bigEnough = size;
             }
         }
 
-        return(result);
+        return bigEnough;
     }
 
     private boolean checkCameraHardware(Context context) {
