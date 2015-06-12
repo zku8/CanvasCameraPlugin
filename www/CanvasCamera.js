@@ -11,6 +11,7 @@ var CanvasCamera = function(){
     var _obj = null;
     var _context = null;
     var _camImage = null;
+    var _onDraw = null;
 };
 
 CanvasCamera.prototype.initialize = function(obj) {
@@ -20,6 +21,9 @@ CanvasCamera.prototype.initialize = function(obj) {
     this._camImage = new Image();
     this._camImage.onload = function() {
         this.drawImage();
+        if(this._onDraw) {
+          this._onDraw(this._context);
+        }
     }.bind(this);
 };
 
@@ -37,6 +41,10 @@ CanvasCamera.prototype.capture = function(imgData) {
     if (imgData) {
         this._camImage.src = imgData;
     }
+};
+
+CanvasCamera.prototype.setFlashMode = function(onDraw) {
+  this._onDraw = onDraw || null;
 };
 
 CanvasCamera.prototype.setFlashMode = function(flashMode) {
