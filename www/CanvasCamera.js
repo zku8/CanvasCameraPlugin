@@ -43,7 +43,7 @@ CanvasCamera.prototype.capture = function(imgData) {
     }
 };
 
-CanvasCamera.prototype.setFlashMode = function(onDraw) {
+CanvasCamera.prototype.setOnDraw = function(onDraw) {
   this._onDraw = onDraw || null;
 };
 
