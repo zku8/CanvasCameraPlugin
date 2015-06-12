@@ -22,18 +22,18 @@ The plugin can either be installed into the local development environment or clo
 Through the [Command-line Interface][CLI]:
 ```bash
 # ~~ from master ~~
-cordova plugin add https://github.com/donaldp24/CanvasCameraPlugin.git && cordova prepare
+cordova plugin add https://github.com/iwilliams/CanvasCameraPlugin.git && cordova prepare
 ```
 or to use the last stable version:
 ```bash
-# ~~ stable version ~~
+# ~~ stable version ~~ NOT WORKING
 cordova plugin add com.keith.cordova.plugin.canvascamera && cordova prepare
 ```
 
 ### Removing the Plugin from your project
 Through the [Command-line Interface][CLI]:
 ```bash
-cordova plugin rm com.keith.cordova.plugin.canvascamera
+cordova plugin rm com.iwilliams.cordova.plugin.canvascamera
 ```
 
 ### PhoneGap Build

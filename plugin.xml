@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-        id="com.keith.cordova.plugin.canvascamera"
+        id="com.iwilliams.cordova.plugin.canvascamera"
         version="1.0.0dev">
 
     <name>CanvasCamera</name>
 
     <description>The purpose of the plugin is to create an platform independent javascript interface for Cordova based mobile applications to preview camera and to take picture.</description>
-    <repo>https://github.com/donaldp24/CanvasCameraPlugin.git</repo>
+    <repo>https://github.com/iwilliams/CanvasCameraPlugin.git</repo>
     <keywords>camera, canvas camera, take photos</keywords>
     <license>Apache 2.0</license>
 
