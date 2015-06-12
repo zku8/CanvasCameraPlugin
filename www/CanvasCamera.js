@@ -77,7 +77,7 @@ CanvasCamera.prototype.drawImage = function() {
     var newHeight = imageHeight * ratio;
     var cropX, cropY, cropWidth, cropHeight, aspectRatio = 1;
 
-    context.clearRect(0, 0, desiredWidth, desiredHeight);
+    //context.clearRect(0, 0, desiredWidth, desiredHeight);
 
     // decide which gap to fill
     if (newWidth < desiredWidth) {
