@@ -27,7 +27,7 @@ cordova plugin add https://github.com/dekwilde/CanvasCameraPlugin.git && cordova
 or to use the last stable version:
 ```bash
 # ~~ stable version ~~ NOT WORKING
-cordova plugin add br.com.keith.dekwilde.plugin.canvascamera && cordova prepare
+cordova plugin add br.com.dekwilde.plugin.canvascamera && cordova prepare
 ```
 
 ### Removing the Plugin from your project
