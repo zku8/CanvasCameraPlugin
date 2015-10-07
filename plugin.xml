@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-        id="com.iwilliams.cordova.plugin.canvascamera"
-        version="1.0.0dev">
+        id="br.com.dekwilde.cordova.plugin.canvascamera"
+        version="1.4.6">
 
     <name>CanvasCamera</name>
 
     <description>The purpose of the plugin is to create an platform independent javascript interface for Cordova based mobile applications to preview camera and to take picture.</description>
-    <repo>https://github.com/iwilliams/CanvasCameraPlugin.git</repo>
+    <repo>https://github.com/dekwilde/CanvasCameraPlugin.git</repo>
     <keywords>camera, canvas camera, take photos</keywords>
     <license>Apache 2.0</license>
 
@@ -49,13 +49,13 @@
     <platform name="android">
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="CanvasCamera">
-                <param name="android-package" value="com.keith.canvascameraplugin.CanvasCamera"/>
+                <param name="android-package" value="br.com.dekwilde.CanvasCamera"/>
             </feature>
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
 	        <activity
-	                android:name="com.keith.canvascameraplugin.CanvasCameraView"
+	                android:name="br.com.dekwilde.CanvasCamera"
 	                android:label="@string/app_name"
 	                android:theme="@android:style/Theme.Black.NoTitleBar">
 	        </activity>
@@ -71,7 +71,7 @@
 			<uses-feature android:name="android.hardware.camera.setParameters" />
         </config-file>
 
-        <source-file src="src/android/CanvasCamera.java" target-dir="src/com/keith/canvascameraplugin" />
+        <source-file src="src/android/CanvasCamera.java" target-dir="src/com/dekwilde/canvascameraplugin" />
 
     </platform>
 

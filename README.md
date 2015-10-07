@@ -22,28 +22,28 @@ The plugin can either be installed into the local development environment or clo
 Through the [Command-line Interface][CLI]:
 ```bash
 # ~~ from master ~~
-cordova plugin add https://github.com/iwilliams/CanvasCameraPlugin.git && cordova prepare
+cordova plugin add https://github.com/dekwilde/CanvasCameraPlugin.git && cordova prepare
 ```
 or to use the last stable version:
 ```bash
 # ~~ stable version ~~ NOT WORKING
-cordova plugin add com.keith.cordova.plugin.canvascamera && cordova prepare
+cordova plugin add br.com.keith.dekwilde.plugin.canvascamera && cordova prepare
 ```
 
 ### Removing the Plugin from your project
 Through the [Command-line Interface][CLI]:
 ```bash
-cordova plugin rm com.iwilliams.cordova.plugin.canvascamera
+cordova plugin rm br.com.dekwilde.cordova.plugin.canvascamera
 ```
 
 ### PhoneGap Build
 Add the following xml to your config.xml to always use the latest version of this plugin:
 ```xml
-<gap:plugin name="com.keith.cordova.plugin.canvascamera" />
+<gap:plugin name="br.com.dekwilde.cordova.plugin.canvascamera" />
 ```
 or to use an specific version:
 ```xml
-<gap:plugin name="com.keith.cordova.plugin.canvascamera" version="1.0.1" />
+<gap:plugin name="br.com.dekwilde.cordova.plugin.canvascamera" version="1.4.6" />
 ```
 More informations can be found [here][PGB_plugin].
 
