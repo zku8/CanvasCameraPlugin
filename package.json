@@ -1,0 +1,19 @@
+{
+  "name": "cordova-plugin-canvas-camera",
+  "version": "0.0.1",
+  "description": "Canvas Camera plug-in for Android and iOS",
+  "cordova": {
+    "id": "com.virtuoworks.cordova-plugin-canvas-camera",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios"
+  ],
+  "author": "VirtuoWorks",
+  "license": "MIT"
+}

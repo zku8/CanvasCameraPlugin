@@ -1,4 +1,4 @@
-package com.keith.canvascameraplugin;
+package com.virtuoworks.cordova-plugin-canvas-camera;
 
 import android.app.Activity;
 import android.util.Log;
@@ -41,6 +41,7 @@ public class CanvasCamera extends CordovaPlugin
 {
     private final static String TAG = "CanvasCamera";
     private final static String kLensOrientationKey = "cameraPosition";
+    private final static String kFpsKey = "fps";
     private final static String kWidthKey = "width";
     private final static String kHeightKey = "height";
 
@@ -55,6 +56,7 @@ public class CanvasCamera extends CordovaPlugin
     private int mPreviewFormat;
 
     private int mLensOrientation;
+    private int mFps;
     private int mWidth;
     private int mHeight;
     private int mRotation = 0;
@@ -114,6 +116,7 @@ public class CanvasCamera extends CordovaPlugin
         String cameraPosition = "";
 
         // init parameters - default values
+        mFps = 30;
         mWidth = 352;
         mHeight = 288;
         mLensOrientation = Camera.CameraInfo.CAMERA_FACING_BACK;
@@ -246,7 +249,7 @@ public class CanvasCamera extends CordovaPlugin
         @Override
         public void onPreviewFrame(byte[] data, Camera camera) {
             data = convertImageToJpeg(data);
-            data = rotateImage(data, mRotation);
+            // data = rotateImage(data, mRotation);
 
             File file = getImageFile();
             saveImage(data, file);
@@ -301,12 +304,31 @@ public class CanvasCamera extends CordovaPlugin
         mPreviewHeight = previewSize.height;
         params.setPreviewSize(mPreviewWidth, mPreviewHeight);
 
+        int[] frameRate = getOptimalFramerate(params);
+        mFps = (int)frameRate[0];
+        params.setPreviewFpsRange((int)frameRate[0], (int)frameRate[0]);
+
         String focusMode = getOptimalFocusMode(params);
         params.setFocusMode(focusMode);
 
         camera.setParameters(params);
 
         mPreviewFormat = params.getPreviewFormat();
+    }
+
+
+    private int[] getOptimalFramerate(Camera.Parameters params) {
+        List<int[]> supportedRanges = params.getSupportedPreviewFpsRange();
+
+        int[] optimalFpsRange = new int[] {30, 30};
+
+        for (int[] range : supportedRanges) {
+            optimalFpsRange = range;
+            if ((int)range[0] >= (mFps * 1000)) {
+               break;
+            }
+        }
+        return optimalFpsRange;
     }
 
     private String getOptimalFocusMode(Camera.Parameters params) {
@@ -425,6 +447,7 @@ public class CanvasCamera extends CordovaPlugin
     }
 
     private byte[] convertImageToJpeg(byte[] data) {
+
         YuvImage yuvImage = new YuvImage(data, mPreviewFormat, mPreviewWidth, mPreviewHeight, null);
         Rect rect = new Rect(0, 0, mPreviewWidth, mPreviewHeight);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -461,15 +484,20 @@ public class CanvasCamera extends CordovaPlugin
             }
         }
 
-        // width
-        if (jsonData.has(kWidthKey)) {
-            mWidth = jsonData.getInt(kWidthKey);
+        // fps
+        if (jsonData.has(kFpsKey)) {
+            mFps = jsonData.getInt(kFpsKey);
         }
 
+        // width
+        /*if (jsonData.has(kWidthKey)) {
+            mWidth = jsonData.getInt(kWidthKey);
+        }*/
+
         // height
-        if (jsonData.has(kHeightKey)) {
+        /*if (jsonData.has(kHeightKey)) {
             mHeight = jsonData.getInt(kHeightKey);
-        }
+        }*/
     }
 
 }

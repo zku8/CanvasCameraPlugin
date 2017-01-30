@@ -20,39 +20,28 @@ The plugin can either be installed into the local development environment or clo
 
 ### Adding the Plugin to your project
 Through the [Command-line Interface][CLI]:
+
+# from master
 ```bash
-# ~~ from master ~~
-cordova plugin add https://github.com/dekwilde/CanvasCameraPlugin.git && cordova prepare
-```
-or to use the last stable version:
-```bash
-# ~~ stable version ~~ NOT WORKING
-cordova plugin add br.com.dekwilde.plugin.canvascamera && cordova prepare
+cordova plugin add https://github.com/VirtuoWorks/CanvasCameraPlugin.git && cordova prepare
 ```
 
 ### Removing the Plugin from your project
 Through the [Command-line Interface][CLI]:
 ```bash
-cordova plugin rm br.com.dekwilde.cordova.plugin.canvascamera
+cordova plugin rm com.virtuoworks.cordova-plugin-canvas-camera
 ```
 
 ### PhoneGap Build
 Add the following xml to your config.xml to always use the latest version of this plugin:
 ```xml
-<gap:plugin name="br.com.dekwilde.cordova.plugin.canvascamera" />
+<gap:plugin name="com.virtuoworks.cordova-plugin-canvas-camera" />
 ```
 or to use an specific version:
 ```xml
-<gap:plugin name="br.com.dekwilde.cordova.plugin.canvascamera" version="1.4.6" />
+<gap:plugin name="com.virtuoworks.cordova-plugin-canvas-camera" version="0.0.1" />
 ```
 More informations can be found [here][PGB_plugin].
-
-
-## ChangeLog
-
-#### Version 1.0.0 (not yet released)
-- [feature:] Create plugin
-
 
 ## Using the plugin
 The plugin creates the object ```window.plugin.CanvasCamera``` with the following methods:
@@ -90,40 +79,14 @@ function onStartClicked()
 {
     var options = {
         quality: 75,
-        destinationType: CanvasCamera.DestinationType.DATA_URL,
-        encodingType: CanvasCamera.EncodingType.JPEG,
+        cameraPosition: 'front',
+        fps: 30,
         width: 640,
         height: 480
     };
     window.plugin.CanvasCamera.start(options);
 }
 ```
-
-### takePicture
-take a photo.<br>
-
-```javascript
-window.plugin.takePicture(onSuccess);
-```
-
-This function takes a photo.
-When taked a photo successfully, then the plugin calls onSuccess callback function with image URI or data URL according to [options][options].
-If options.saveToPhotoAlbum is true, then this function saves taked photo to photo album, too.
-
-```javascript
-
-// if options.destinationType == CanvasCamera.DestinationType.IMAGE_URI
-function onSuccess(data) {
-    image.src = data; // URI
-}
-
-// else if options.destinationType == CanvasCamera.DestinationType.DATA_URL
-function onSuccess(data) {
-    image.src = "data:image/jpeg;base64," + data; // options.encodingType == CanvasCamera.EncodingType.JPEG
-    // image.src = "data:image/png;base64," + data; // options.encodingType == CanvasCamera.EncodingType.PNG
-}
-```
-
 ### setFlashMode
 Set flash mode for camera.<br>
 
@@ -172,47 +135,22 @@ window.plugin.CanvasCamera.setCameraPosition(CanvasCamera.CameraPosition.FRONT);
 
 ### options
 Optional parameters to customize the settings.
+
 ```javascript
-{ quality : 75,
-  destinationType : CanvasCamera.DestinationType.DATA_URL,
-  sourceType : CanvasCamera.PictureSourceType.CAMERA,
-  allowEdit : true,
-  encodingType: CanvasCamera.EncodingType.JPEG,
-  correctOrientation: true,
-  saveToPhotoAlbum: false,
+{
+  quality : 75,
+  cameraPosition: 'front',
+  fps: 30,
   width: 640,
   height: 480
-  };
+};
 ```
 
 - quality: Quality of saved image. Range is [0, 100]. (Number)
-- destinationType: Choose the format of the return value. Defined in Camera.DestinationType (Number)
-```javascript
-    CanvasCamera.DestinationType = {
-        DATA_URL : 0,                // Return image as base64 encoded string
-        FILE_URI : 1                 // Return image file URI
-    };
-```
-- sourceType: Set the source of the picture. Defined in Camera.PictureSourceType (Number)
-```javascript
-CanvasCamera.PictureSourceType = {
-    PHOTOLIBRARY : 0,
-    CAMERA : 1,
-    SAVEDPHOTOALBUM : 2
-};
-```
-- allowEdit: Allow simple editing of image before selection. (Boolean)
-- encodingType: Choose the encoding of the returned image file. Defined in Camera.EncodingType (Number)
-```javascript
-    CanvasCamera.EncodingType = {
-        JPEG : 0,               // Return JPEG encoded image
-        PNG : 1                 // Return PNG encoded image
-    };
-```
+- cameraPosition. 'front' or 'back'
+- fps. Number.
 - width: Width in pixels to scale image. Could be used with targetHeight. Aspect ratio is keeped. (Number)
 - height: Height in pixels to scale image. Could be used with targetWidth. Aspect ratio is keeped. (Number)
-- correctOrientation: Rotate the image to correct for the orientation of the device during capture. (Boolean)
-- saveToPhotoAlbum: Save the image to the photo album on the device after capture. (Boolean)
 
 
 ## Full Example
@@ -276,10 +214,6 @@ CanvasCamera.PictureSourceType = {
                                           // define options
                                           var opt = {
                                               quality: 75,
-                                              destinationType: CanvasCamera.DestinationType.DATA_URL,
-                                              encodingType: CanvasCamera.EncodingType.JPEG,
-                                              saveToPhotoAlbum:true,
-                                              correctOrientation:true,
                                               width:640,
                                               height:480
                                           };
@@ -343,9 +277,7 @@ CanvasCamera.PictureSourceType = {
 
 ## License
 
-This software is released under the [Apache 2.0 License][apache2_license].
-
-© 2013-2014 Snaphappi, Inc. All rights reserved
+This software is released under the [MIT License](https://opensource.org/licenses/MIT).
 
 [ctassetspickercontroller]: https://github.com/chiunam/CTAssetsPickerController
 [cordova-plugin-local-notifications]: https://github.com/katzer/cordova-plugin-local-notifications

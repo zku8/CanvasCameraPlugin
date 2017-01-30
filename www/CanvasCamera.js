@@ -1,8 +1,11 @@
+cordova.define("com.virtuoworks.cordova-plugin-canvas-camera.CanvasCamera", function(require, exports, module) {
 //
 //  CanvasCamera.js
 //  PhoneGap iOS Cordova Plugin to capture Camera streaming into a HTML5 Canvas or an IMG tag.
 //
 //  Created by Diego Araos <d@wehack.it> on 12/29/12.
+//
+//  Updated by VirtuoWorks.
 //
 //  MIT License
 
@@ -17,7 +20,8 @@ var CanvasCamera = function(){
 CanvasCamera.prototype.initialize = function(obj) {
     this._obj = obj;
     this._context = obj.getContext("2d");
-
+    console.log('this._context from CanvasCamera.js in platform_www');
+    console.log(this._context);
     this._camImage = new Image();
     this._camImage.onload = function() {
         this.drawImage();
@@ -27,19 +31,31 @@ CanvasCamera.prototype.initialize = function(obj) {
     }.bind(this);
 };
 
-
 CanvasCamera.prototype.start = function(options) {
-    cordova.exec(this.capture.bind(this), false, "CanvasCamera", "startCapture", [options]);
+    this._obj.width = options.width;
+    this._obj.height = options.height;
+    cordova.exec(this.capture.bind(this), function(error) {
+        console.log('start error', error);
+    }, "CanvasCamera", "startCapture", [options]);
 };
 
 CanvasCamera.prototype.stop = function() {
-    cordova.exec(false, false, "CanvasCamera", "stopCapture", []);
+    cordova.exec(false, function(error) {
+        console.log('stop error', error);
+    }, "CanvasCamera", "stopCapture", []);
 };
 
-
 CanvasCamera.prototype.capture = function(imgData) {
+    // console.log('capture from native code', imgData);
     if (imgData) {
+        // console.log(imgData);
+
+        // var buffer = this.base64ToBuffer(imgData);
+        // var imageData = new ImageData(buffer, width, height);
+
         this._camImage.src = imgData;
+    } else {
+        console.log('no imgData');
     }
 };
 
@@ -48,16 +64,21 @@ CanvasCamera.prototype.setOnDraw = function(onDraw) {
 };
 
 CanvasCamera.prototype.setFlashMode = function(flashMode) {
-    cordova.exec(function(){}, function(){}, "CanvasCamera", "setFlashMode", [flashMode]);
+    cordova.exec(function(){}, function(error) {
+        console.log('setFlashMode error', error);
+    }, "CanvasCamera", "setFlashMode", [flashMode]);
 };
 
 CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
     cordova.exec(function(){
         this._cameraPosition = cameraPosition;
-    }.bind(this), function(){}, "CanvasCamera", "setCameraPosition", [cameraPosition]);
+    }.bind(this), function(error) {
+        console.log('setCameraPosition error', error);
+    }, "CanvasCamera", "setCameraPosition", [cameraPosition]);
 };
 
 CanvasCamera.prototype.drawImage = function() {
+    // console.log('window.orientation: ' + window.orientation);
     var image = this._camImage;
     var context = this._context;
     var canvasWidth = this._obj.width = this._obj.clientWidth;
@@ -66,6 +87,7 @@ CanvasCamera.prototype.drawImage = function() {
     var desiredWidth = canvasWidth;
     var desiredHeight = canvasHeight;
     if (window.orientation != 90 && window.orientation != -90) {
+        console.log()
         desiredWidth = canvasHeight;
         desiredHeight = canvasWidth;
     }
@@ -122,5 +144,58 @@ CanvasCamera.prototype.drawImage = function() {
     context.restore();
 };
 
+/*
+CanvasCamera.prototype.base64ToBuffer = function (base64) {
+  
+  // UniBabel
+  // https://github.com/Daplie/unibabel-js/blob/master/index.js
+  
+  var binstr = atob(base64);
+
+  var buffer;
+
+  if ('undefined' !== typeof Uint8Array) {
+    buffer = new Uint8Array(binstr.length); // Uint8ClampedArray
+  } else {
+    buffer = [];
+  }
+
+  Array.prototype.forEach.call(binstr, function (ch, i) {
+    buffer[i] = ch.charCodeAt(0);
+  });
+
+  return buffer;
+}*/
+
+/*
+    UniBabel
+    https://github.com/Daplie/unibabel-js/blob/master/index.js
+*//*
+function base64ToBuffer(base64) {
+  var binstr = atob(base64);
+  var buf = binaryStringToBuffer(binstr);
+  return buf;
+}
+function binaryStringToBuffer(binstr) {
+  var buf;
+
+  if ('undefined' !== typeof Uint8Array) {
+    buf = new Uint8Array(binstr.length);
+  } else {
+    buf = [];
+  }
+
+  Array.prototype.forEach.call(binstr, function (ch, i) {
+    buf[i] = ch.charCodeAt(0);
+  });
+
+  return buf;
+}*/
+/* End: UniBabel */
+
+
+
 var CanvasCamera = new CanvasCamera();
 module.exports = CanvasCamera;
+
+});

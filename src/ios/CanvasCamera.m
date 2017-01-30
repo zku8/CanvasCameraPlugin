@@ -4,6 +4,8 @@
 //
 //  Created by Diego Araos <d@wehack.it> on 12/29/12.
 //
+//  Updated by VirtuoWorks.
+//
 //  MIT License
 
 #import "CanvasCamera.h"
@@ -13,6 +15,7 @@
 #define kQualityKey         @"quality"
 #define kWidthKey           @"width"
 #define kHeightKey          @"height"
+#define kFpsKey             @"fps"
 #define kDevicePositionKey  @"cameraPosition"
 
 @interface CanvasCamera () {
@@ -28,6 +31,7 @@
 
     int _width;
     int _height;
+    int _fps;
 }
 
 @end
@@ -38,13 +42,13 @@
 
 - (void)startCapture:(CDVInvokedUrlCommand *)command
 {
-    CDVPluginResult *pluginResult = nil;
+    
 
     // check already started
     if (self.session && bIsStarted)
     {
         // failure callback
-        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Already started"];
+        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Already started"];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 
         return;
@@ -54,6 +58,7 @@
     _quality = 85;
     _width = 640;
     _height = 480;
+    _fps = 30;
     _devicePosition = AVCaptureDevicePositionBack;
 
     // parse options
@@ -63,9 +68,11 @@
         [self getOptions:jsonData];
     }
 
+
+/*
     // add support for options (fps, capture quality, capture format, etc.)
     self.session = [[AVCaptureSession alloc] init];
-    self.session.sessionPreset = AVCaptureSessionPresetPhoto;
+    self.session.sessionPreset = AVCaptureSessionPreset352x288; // AVCaptureSessionPresetPhoto
 
     self.device = [self cameraWithPosition: _devicePosition];
     self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
@@ -82,11 +89,77 @@
     [self.session startRunning];
 
     bIsStarted = YES;
-
+*/
 
     // success callback
-    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    //pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
+    //[self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+
+
+
+    [self.commandDelegate runInBackground:^{
+        
+        // add support for options (fps, capture quality, capture format, etc.)
+        self.session = [[AVCaptureSession alloc] init];
+        self.session.sessionPreset = AVCaptureSessionPreset352x288; // AVCaptureSessionPresetPhoto | AVCaptureSessionPreset352x288 | AVCaptureSessionPreset640x480
+        
+
+        self.device = [self cameraWithPosition: _devicePosition];
+
+
+
+
+        self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
+
+        self.output = [[AVCaptureVideoDataOutput alloc] init];
+        self.output.videoSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
+
+
+        queue = dispatch_queue_create("canvas_camera_queue", NULL);
+        [self.output setSampleBufferDelegate:(id)self queue:queue];
+
+        [self.session addInput:self.input];
+        [self.session addOutput:self.output];
+
+
+
+
+
+
+
+        NSError *error;
+        CMTime frameDuration = CMTimeMake(1, _fps);
+        NSArray *supportedFrameRateRanges = [self.device.activeFormat videoSupportedFrameRateRanges];
+        BOOL frameRateSupported = NO;
+        for (AVFrameRateRange *range in supportedFrameRateRanges) {
+            if (CMTIME_COMPARE_INLINE(frameDuration, >=, range.minFrameDuration) &&
+                CMTIME_COMPARE_INLINE(frameDuration, <=, range.maxFrameDuration)) {
+                frameRateSupported = YES;
+            }
+        }
+
+        if (frameRateSupported && [self.device lockForConfiguration:&error]) {
+
+            NSLog(@"fps: %d", _fps);
+
+            [self.device setActiveVideoMaxFrameDuration:frameDuration];
+            [self.device setActiveVideoMinFrameDuration:frameDuration];
+            [self.device unlockForConfiguration];
+        }
+
+
+
+        [self.session startRunning];
+
+        bIsStarted = YES;
+
+        
+        
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
+        // The sendPluginResult method is thread-safe.
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    }];
+
 }
 
 - (void)stopCapture:(CDVInvokedUrlCommand *)command
@@ -299,7 +372,9 @@
         // resize image
         image = [CanvasCamera resizeImage:image toSize:CGSizeMake(352.0, 288.0)];
 
-        NSData *imageData = UIImageJPEGRepresentation(image, 1.0);
+        NSData *imageData = UIImageJPEGRepresentation(image, 1.0); // Jpeg version
+        //NSData *imageData = UIImagePNGRepresentation(image); // PNG version
+
         dispatch_async(dispatch_get_main_queue(), ^{
             @autoreleasepool {
 
@@ -322,9 +397,33 @@
                 imagePath = [NSString stringWithFormat:@"file://%@", imagePath];
 
                 NSString *javascript = [NSString stringWithFormat:@"%@%@%@", @"CanvasCamera.capture('", imagePath, @"');"];
-                [self.webView stringByEvaluatingJavaScriptFromString:javascript];
+
+
+/*
+                NSString *encodedString = [imageData base64EncodedStringWithOptions:0]; // base64Encoding (deprecated)
+                NSString *base64Data = [NSString stringWithFormat:@"data:image/png;base64,%@", encodedString];
+                //NSString *base64Data = [NSString stringWithFormat:@"%@", encodedString];
+                NSString *javascript = [NSString stringWithFormat:@"%@%@%@", @"CanvasCamera.capture('", base64Data, @"');"];
+*/
+                //[self.webView stringByEvaluatingJavaScriptFromString:javascript];
+                if ([self.webView respondsToSelector:@selector(stringByEvaluatingJavaScriptFromString:)]) {
+                    // Cordova-iOS pre-4
+                    [self.webView performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:javascript waitUntilDone:YES];
+                } else {
+                    // Cordova-iOS 4+
+                    [self.webView performSelectorOnMainThread:@selector(evaluateJavaScript:completionHandler:) withObject:javascript waitUntilDone:YES];
+                }
+/*
+                encodedString = nil;
+                base64Data = nil;
+                javascript = nil;
+*/
+
+
             }
         });
+
+
 
         CGImageRelease(newImage);
         CVPixelBufferUnlockBaseAddress(imageBuffer,0);
@@ -408,6 +507,11 @@
     obj = [jsonData objectForKey:kHeightKey];
     if (obj != nil)
         _height = [obj intValue];
+
+    // fps
+    obj = [jsonData objectForKey:kFpsKey];
+    if (obj != nil)
+        _fps = [obj intValue];
 }
 
 + (UIImage *)resizeImage:(UIImage *)image toSize:(CGSize)newSize
