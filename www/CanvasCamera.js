@@ -1,4 +1,3 @@
-cordova.define("com.virtuoworks.cordova-plugin-canvas-camera.CanvasCamera", function(require, exports, module) {
 //
 //  CanvasCamera.js
 //  PhoneGap iOS Cordova Plugin to capture Camera streaming into a HTML5 Canvas or an IMG tag.
@@ -197,5 +196,3 @@ function binaryStringToBuffer(binstr) {
 
 var CanvasCamera = new CanvasCamera();
 module.exports = CanvasCamera;
-
-});

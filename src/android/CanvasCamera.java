@@ -1,4 +1,4 @@
-package com.virtuoworks.cordova-plugin-canvas-camera;
+package com.virtuoworks.cordovaplugincanvascamera;
 
 import android.app.Activity;
 import android.util.Log;
