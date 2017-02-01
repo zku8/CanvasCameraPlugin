@@ -1,9 +1,9 @@
 {
-  "name": "cordova-plugin-canvas-camera",
+  "name": "cordova-plugin-canvascamera",
   "version": "0.0.1",
   "description": "Canvas Camera plug-in for Android and iOS",
   "cordova": {
-    "id": "com.virtuoworks.cordova-plugin-canvas-camera",
+    "id": "com.virtuoworks.cordova-plugin-canvascamera",
     "platforms": [
       "android",
       "ios"
