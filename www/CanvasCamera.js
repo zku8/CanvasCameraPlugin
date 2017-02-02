@@ -10,29 +10,31 @@
 
 var exec = require('cordova/exec');
 var CanvasCamera = function(){
-    var _obj = null;
-    var _context = null;
-    var _camImage = null;
-    var _onDraw = null;
+    var _userOptions = null;
+    var _canvasElement = null;
+    var _canvasContext = null;
+    var _imageElement = null;
+    var _onDrawCallback = null;
 };
 
-CanvasCamera.prototype.initialize = function(obj) {
-    this._obj = obj;
-    this._context = obj.getContext("2d");
-    console.log('this._context from CanvasCamera.js in platform_www');
-    console.log(this._context);
-    this._camImage = new Image();
-    this._camImage.onload = function() {
+CanvasCamera.prototype.initialize = function(canvasElement) {
+    this._canvasElement = canvasElement;
+    this._canvasContext = canvasElement.getContext("2d");
+    this._imageElement = new Image();
+    this._imageElement.onload = function() {
+        this.setCanvasDimensions();
         this.drawImage();
-        if(this._onDraw) {
-          this._onDraw(this._context);
+        if(this._onDrawCallback) {
+          this._onDrawCallback(this._canvasContext);
         }
     }.bind(this);
 };
 
 CanvasCamera.prototype.start = function(options) {
-    this._obj.width = options.width;
-    this._obj.height = options.height;
+    this._userOptions = options;
+/*    this._canvasElement.width = options.width;
+    this._canvasElement.height = options.height;*/
+    this.setCanvasDimensions();
     cordova.exec(this.capture.bind(this), function(error) {
         console.log('start error', error);
     }, "CanvasCamera", "startCapture", [options]);
@@ -44,22 +46,14 @@ CanvasCamera.prototype.stop = function() {
     }, "CanvasCamera", "stopCapture", []);
 };
 
-CanvasCamera.prototype.capture = function(imgData) {
-    // console.log('capture from native code', imgData);
-    if (imgData) {
-        // console.log(imgData);
-
-        // var buffer = this.base64ToBuffer(imgData);
-        // var imageData = new ImageData(buffer, width, height);
-
-        this._camImage.src = imgData;
-    } else {
-        console.log('no imgData');
+CanvasCamera.prototype.capture = function(imgSrc) {
+    if (imgSrc) {
+        this._imageElement.src = imgSrc;
     }
 };
 
-CanvasCamera.prototype.setOnDraw = function(onDraw) {
-  this._onDraw = onDraw || null;
+CanvasCamera.prototype.setOnDraw = function(onDrawCallback) {
+  this._onDrawCallback = onDrawCallback || null;
 };
 
 CanvasCamera.prototype.setFlashMode = function(flashMode) {
@@ -76,15 +70,54 @@ CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
     }, "CanvasCamera", "setCameraPosition", [cameraPosition]);
 };
 
+CanvasCamera.prototype.getOrientation = function() {
+    let currentOrientation = "";
+    if (window.orientation == 0) {
+        currentOrientation = "portrait";
+    } else if (window.orientation == 90) {
+        currentOrientation = "landscape";
+    } else if (window.orientation == -90) {
+        currentOrientation = "landscape";
+    } else if (window.orientation == 180) {
+        currentOrientation = "portrait";
+    }
+    return currentOrientation
+}
+
+CanvasCamera.prototype.getCanvasWidth = function() {
+    return this._canvasElement.width;
+}
+
+CanvasCamera.prototype.getCanvasHeight = function() {
+    return this._canvasElement.height;
+}
+
+CanvasCamera.prototype.setCanvasDimensions = function() {
+    if (this._userOptions.width) {
+        this._canvasElement.width = this._userOptions.width;
+    } else {
+        this._canvasElement.width = window.innerWidth;
+    }
+
+    if (this._userOptions.height) {
+        this._canvasElement.height = this._userOptions.height;
+    } else {
+        this._canvasElement.height = window.innerHeight;
+    }
+}
+
 CanvasCamera.prototype.drawImage = function() {
     // console.log('window.orientation: ' + window.orientation);
-    var image = this._camImage;
-    var context = this._context;
-    var canvasWidth = this._obj.width = this._obj.clientWidth;
-    var canvasHeight = this._obj.height = this._obj.clientHeight;
+
+/*
+    var image = this._imageElement;
+    var context = this._canvasContext;
+    var canvasWidth = this._canvasElement.width = this._canvasElement.clientWidth;
+    var canvasHeight = this._canvasElement.height = this._canvasElement.clientHeight;
 
     var desiredWidth = canvasWidth;
     var desiredHeight = canvasHeight;
+
     if (window.orientation != 90 && window.orientation != -90) {
         console.log()
         desiredWidth = canvasHeight;
@@ -122,9 +155,12 @@ CanvasCamera.prototype.drawImage = function() {
     if (cropY < 0) cropY = 0;
     if (cropWidth > imageWidth) cropWidth = imageWidth;
     if (cropHeight > imageHeight) cropHeight = imageHeight;
+*/
+
+
 
     // rotate context according to orientation
-    context.save();
+    /*context.save();
     context.translate(canvasWidth / 2, canvasHeight / 2);
     context.rotate((90 - window.orientation) * Math.PI/180);
 
@@ -141,57 +177,14 @@ CanvasCamera.prototype.drawImage = function() {
         -desiredWidth / 2, -desiredHeight / 2, desiredWidth, desiredHeight);
 
     context.restore();
+    */
+
+
+    var image = this._imageElement;
+    var context = this._canvasContext;
+
+    context.drawImage(image, 0, 0, image.width, image.height);
 };
-
-/*
-CanvasCamera.prototype.base64ToBuffer = function (base64) {
-  
-  // UniBabel
-  // https://github.com/Daplie/unibabel-js/blob/master/index.js
-  
-  var binstr = atob(base64);
-
-  var buffer;
-
-  if ('undefined' !== typeof Uint8Array) {
-    buffer = new Uint8Array(binstr.length); // Uint8ClampedArray
-  } else {
-    buffer = [];
-  }
-
-  Array.prototype.forEach.call(binstr, function (ch, i) {
-    buffer[i] = ch.charCodeAt(0);
-  });
-
-  return buffer;
-}*/
-
-/*
-    UniBabel
-    https://github.com/Daplie/unibabel-js/blob/master/index.js
-*//*
-function base64ToBuffer(base64) {
-  var binstr = atob(base64);
-  var buf = binaryStringToBuffer(binstr);
-  return buf;
-}
-function binaryStringToBuffer(binstr) {
-  var buf;
-
-  if ('undefined' !== typeof Uint8Array) {
-    buf = new Uint8Array(binstr.length);
-  } else {
-    buf = [];
-  }
-
-  Array.prototype.forEach.call(binstr, function (ch, i) {
-    buf[i] = ch.charCodeAt(0);
-  });
-
-  return buf;
-}*/
-/* End: UniBabel */
-
 
 
 var CanvasCamera = new CanvasCamera();
