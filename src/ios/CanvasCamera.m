@@ -17,6 +17,8 @@
 #define kHeightKey          @"height"
 #define kFpsKey             @"fps"
 #define kDevicePositionKey  @"cameraPosition"
+#define kHasThumbnailKey    @"hasThumbnail"
+#define kThumbnailRatioKey  @"thumbnailRatio"
 
 @interface CanvasCamera () {
     dispatch_queue_t queue;
@@ -28,10 +30,11 @@
 
     // options
     int _quality;
-
     int _width;
     int _height;
     int _fps;
+    bool _hasThumbnail;
+    double _thumbnailRatio;
 }
 
 @end
@@ -42,8 +45,6 @@
 
 - (void)startCapture:(CDVInvokedUrlCommand *)command
 {
-    
-
     // check already started
     if (self.session && bIsStarted)
     {
@@ -55,11 +56,13 @@
     }
 
     // init parameters - default values
-    _quality = 85;
-    _width = 640;
-    _height = 480;
+    _quality =85;
+    _width = 352;
+    _height = 288;
     _fps = 30;
     _devicePosition = AVCaptureDevicePositionBack;
+    _hasThumbnail = false;
+    _thumbnailRatio = 1 / 6;
 
     // parse options
     if ([command.arguments count] > 0)
@@ -69,51 +72,17 @@
     }
 
 
-/*
-    // add support for options (fps, capture quality, capture format, etc.)
-    self.session = [[AVCaptureSession alloc] init];
-    self.session.sessionPreset = AVCaptureSessionPreset352x288; // AVCaptureSessionPresetPhoto
-
-    self.device = [self cameraWithPosition: _devicePosition];
-    self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
-
-    self.output = [[AVCaptureVideoDataOutput alloc] init];
-    self.output.videoSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-
-    queue = dispatch_queue_create("canvas_camera_queue", NULL);
-    [self.output setSampleBufferDelegate:(id)self queue:queue];
-
-    [self.session addInput:self.input];
-    [self.session addOutput:self.output];
-
-    [self.session startRunning];
-
-    bIsStarted = YES;
-*/
-
-    // success callback
-    //pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
-    //[self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-
-
-
     [self.commandDelegate runInBackground:^{
-        
         // add support for options (fps, capture quality, capture format, etc.)
         self.session = [[AVCaptureSession alloc] init];
         self.session.sessionPreset = AVCaptureSessionPreset352x288; // AVCaptureSessionPresetPhoto | AVCaptureSessionPreset352x288 | AVCaptureSessionPreset640x480
         
-
         self.device = [self cameraWithPosition: _devicePosition];
-
-
-
 
         self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
 
         self.output = [[AVCaptureVideoDataOutput alloc] init];
         self.output.videoSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-
 
         queue = dispatch_queue_create("canvas_camera_queue", NULL);
         [self.output setSampleBufferDelegate:(id)self queue:queue];
@@ -121,38 +90,30 @@
         [self.session addInput:self.input];
         [self.session addOutput:self.output];
 
-
-
-
-
-
-
         NSError *error;
         CMTime frameDuration = CMTimeMake(1, _fps);
         NSArray *supportedFrameRateRanges = [self.device.activeFormat videoSupportedFrameRateRanges];
         BOOL frameRateSupported = NO;
-        for (AVFrameRateRange *range in supportedFrameRateRanges) {
+        for (AVFrameRateRange *range in supportedFrameRateRanges)
+        {
             if (CMTIME_COMPARE_INLINE(frameDuration, >=, range.minFrameDuration) &&
-                CMTIME_COMPARE_INLINE(frameDuration, <=, range.maxFrameDuration)) {
+                CMTIME_COMPARE_INLINE(frameDuration, <=, range.maxFrameDuration))
+            {
                 frameRateSupported = YES;
             }
         }
 
-        if (frameRateSupported && [self.device lockForConfiguration:&error]) {
-
-            NSLog(@"fps: %d", _fps);
-
+        if (frameRateSupported && [self.device lockForConfiguration:&error])
+        {
             [self.device setActiveVideoMaxFrameDuration:frameDuration];
             [self.device setActiveVideoMinFrameDuration:frameDuration];
             [self.device unlockForConfiguration];
         }
 
 
-
         [self.session startRunning];
 
         bIsStarted = YES;
-
         
         
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
@@ -203,10 +164,12 @@
         bParsed = YES;
 
         BOOL bFlashModeOn = [[command.arguments objectAtIndex:0] boolValue];
-        if (bFlashModeOn) {
+        if (bFlashModeOn)
+        {
             _flashMode = AVCaptureFlashModeOn;
         }
-        else {
+        else
+        {
             _flashMode = AVCaptureFlashModeOff;
         }
     }
@@ -328,8 +291,6 @@
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
                 [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
             }
-
-
         }
         else
         {
@@ -337,8 +298,6 @@
             pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:errMsg];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
-
-
     }
     else
     {
@@ -349,91 +308,149 @@
 
 #pragma mark - capture delegate
 
+
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
+    Boolean landscape = [CanvasCamera setVideoOrientation:connection];
+
     @autoreleasepool {
-        CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-        CVPixelBufferLockBaseAddress(imageBuffer,0);
-        uint8_t *baseAddress = (uint8_t *)CVPixelBufferGetBaseAddress(imageBuffer);
-        size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
-        size_t width = CVPixelBufferGetWidth(imageBuffer);
-        size_t height = CVPixelBufferGetHeight(imageBuffer);
 
-        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        CGContextRef newContext = CGBitmapContextCreate(baseAddress, width, height, 8, bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+        UIImage *image = [CanvasCamera getUIImageFromSampleBuffer:sampleBuffer];
 
-        CGImageRef newImage = CGBitmapContextCreateImage(newContext);
+        image = [CanvasCamera getResizedUIImage:image toSize:CGSizeMake(_width, _height) landscape:landscape];
+        NSData *fullImageData = UIImageJPEGRepresentation(image, 1.0);
 
-        CGContextRelease(newContext);
-        CGColorSpaceRelease(colorSpace);
-
-        UIImage *image = [UIImage imageWithCGImage:newImage];
-
+        NSData *thumbImageData = nil;
+        if (_hasThumbnail) {
+            UIImage *thumbnail = [CanvasCamera getResizedUIImage:image ratio:_thumbnailRatio];
+            thumbImageData = UIImageJPEGRepresentation(thumbnail, 1.0);
+        }
+        
         // resize image
-        image = [CanvasCamera resizeImage:image toSize:CGSizeMake(352.0, 288.0)];
+        // image = [CanvasCamera resizeImage:image toSize:CGSizeMake(352.0, 288.0)];
 
-        NSData *imageData = UIImageJPEGRepresentation(image, 1.0); // Jpeg version
-        //NSData *imageData = UIImagePNGRepresentation(image); // PNG version
 
         dispatch_async(dispatch_get_main_queue(), ^{
             @autoreleasepool {
 
+                NSMutableDictionary *dictionary =  [[NSMutableDictionary alloc] init];
+
+                
                 // Get a file path to save the JPEG
                 static int i = 0;
                 i++;
 
-                NSString *imagePath = [CanvasCamera getFilePath:[NSString stringWithFormat:@"uuid%d", i] ext:@"jpg"];
-
-                if (i > 10)
-                {
-                    NSString *prevPath = [CanvasCamera getFilePath:[NSString stringWithFormat:@"uuid%d", i-10] ext:@"jpg"];
-                    NSError *error = nil;
-                    [[NSFileManager defaultManager] removeItemAtPath:prevPath error:&error];
-                }
+                NSString *fullImagePath = [CanvasCamera getFilePath:@"f" idx:i ext:@"jpg"];
+                dictionary[@"fullsize"] = fullImagePath;
 
                 // Write the data to the file
-                [imageData writeToFile:imagePath atomically:YES];
+                [fullImageData writeToFile:fullImagePath atomically:YES];
+                fullImagePath = [NSString stringWithFormat:@"file://%@", fullImagePath];
 
-                imagePath = [NSString stringWithFormat:@"file://%@", imagePath];
-
-                NSString *javascript = [NSString stringWithFormat:@"%@%@%@", @"CanvasCamera.capture('", imagePath, @"');"];
-
-
-/*
-                NSString *encodedString = [imageData base64EncodedStringWithOptions:0]; // base64Encoding (deprecated)
-                NSString *base64Data = [NSString stringWithFormat:@"data:image/png;base64,%@", encodedString];
-                //NSString *base64Data = [NSString stringWithFormat:@"%@", encodedString];
-                NSString *javascript = [NSString stringWithFormat:@"%@%@%@", @"CanvasCamera.capture('", base64Data, @"');"];
-*/
-                //[self.webView stringByEvaluatingJavaScriptFromString:javascript];
-                if ([self.webView respondsToSelector:@selector(stringByEvaluatingJavaScriptFromString:)]) {
-                    // Cordova-iOS pre-4
-                    [self.webView performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:javascript waitUntilDone:YES];
-                } else {
-                    // Cordova-iOS 4+
-                    [self.webView performSelectorOnMainThread:@selector(evaluateJavaScript:completionHandler:) withObject:javascript waitUntilDone:YES];
+                if (thumbImageData) {
+                    NSString *thumbImagePath = [CanvasCamera getFilePath:@"t" idx:i ext:@"jpg"];
+                    [thumbImageData writeToFile:thumbImagePath atomically:YES];
+                    thumbImagePath = [NSString stringWithFormat:@"file://%@", thumbImagePath];
+                    dictionary[@"thumbnail"] = thumbImagePath;
                 }
-/*
-                encodedString = nil;
-                base64Data = nil;
-                javascript = nil;
-*/
 
+                NSError *error = nil;
+                NSData *json;
+                
+                // Dictionary convertable to JSON ?
+                if ([NSJSONSerialization isValidJSONObject:dictionary])
+                {
+                    // Serialize the dictionary
+                    json = [NSJSONSerialization dataWithJSONObject:dictionary options:0 error:&error];
+                    
+                    // If no errors, let's view the JSON
+                    if (json != nil && error == nil)
+                    {
+                        NSString *jsonString = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+                        
+                        //NSLog(@"JSON: %@", jsonString);
 
+                        NSString *javascript = [NSString stringWithFormat:@"%@%@%@", @"CanvasCamera.capture(", jsonString, @");"];
+                        
+                        if ([self.webView respondsToSelector:@selector(stringByEvaluatingJavaScriptFromString:)])
+                        {
+                            // Cordova-iOS pre-4
+                            [self.webView performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:javascript waitUntilDone:YES];
+                        }
+                        else
+                        {
+                            // Cordova-iOS 4+
+                            [self.webView performSelectorOnMainThread:@selector(evaluateJavaScript:completionHandler:) withObject:javascript waitUntilDone:YES];
+                        }
+                    }
+                }
+                
             }
         });
 
-
-
-        CGImageRelease(newImage);
-        CVPixelBufferUnlockBaseAddress(imageBuffer,0);
     }
 }
 
 #pragma mark - Utilities
 
++ (UIImage *)getUIImageFromSampleBuffer:(CMSampleBufferRef)sampleBuffer
+{
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    CVPixelBufferLockBaseAddress(imageBuffer,0);
+    uint8_t *baseAddress = (uint8_t *)CVPixelBufferGetBaseAddress(imageBuffer);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
+    size_t width = CVPixelBufferGetWidth(imageBuffer);
+    size_t height = CVPixelBufferGetHeight(imageBuffer);
+    
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef newContext = CGBitmapContextCreate(baseAddress, width, height, 8, bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+    
+    CGImageRef newImage = CGBitmapContextCreateImage(newContext);
+    
+    CGContextRelease(newContext);
+    CGColorSpaceRelease(colorSpace);
+    
+    UIImage *image = [UIImage imageWithCGImage:newImage];
+
+    CGImageRelease(newImage);
+    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
+    
+    return image;
+}
+
++ (Boolean)setVideoOrientation:(AVCaptureConnection *)connection
+{
+    UIDeviceOrientation deviceOrientation = [[UIDevice currentDevice] orientation];
+    Boolean landscape = true;
+
+    if ([connection isVideoOrientationSupported])
+    {
+        switch(deviceOrientation) {
+            case UIInterfaceOrientationPortraitUpsideDown:
+                [connection setVideoOrientation:AVCaptureVideoOrientationPortraitUpsideDown];
+                landscape = false;
+                break;
+            case UIInterfaceOrientationPortrait:
+                [connection setVideoOrientation:AVCaptureVideoOrientationPortrait];
+                landscape = false;
+                break;
+            case UIInterfaceOrientationLandscapeLeft:
+                [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeLeft];
+                break;
+            case UIInterfaceOrientationLandscapeRight:
+                [connection setVideoOrientation:AVCaptureVideoOrientationLandscapeRight];
+                break;
+            default:
+                break;
+        }
+    }
+
+    return landscape;
+}
+
+
 // Find a camera with the specified AVCaptureDevicePosition, returning nil if one is not found
-- (AVCaptureDevice *) cameraWithPosition:(AVCaptureDevicePosition) position
+- (AVCaptureDevice *)cameraWithPosition:(AVCaptureDevicePosition) position
 {
     NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
     for (AVCaptureDevice *device in devices)
@@ -444,11 +461,20 @@
     return nil;
 }
 
-+ (NSString *)getFilePath:(NSString *)uuidString ext:(NSString *)ext
++ (NSString *)getFilePath:(NSString *)prefix idx:(int)idx ext:(NSString *)ext
 {
     NSString *documentsDirectory = [CanvasCamera getAppPath];
-    NSString* filename = [NSString stringWithFormat:@"%@.%@", uuidString, ext];
+
+    NSString* filename = [NSString stringWithFormat:@"%@%d.%@", prefix, idx, ext];
     NSString* imagePath = [documentsDirectory stringByAppendingPathComponent:filename];
+    
+    if (idx > 10)
+    {
+        NSString *prevPath = [NSString stringWithFormat:@"%@%d.%@", prefix, (idx - 10), ext];
+        NSError *error = nil;
+        [[NSFileManager defaultManager] removeItemAtPath:prevPath error:&error];
+    }
+    
     return imagePath;
 }
 
@@ -478,17 +504,22 @@
 - (void)getOptions: (NSDictionary *)jsonData
 {
     if (![jsonData isKindOfClass:[NSDictionary class]])
+    {
         return;
+    }
 
     // get parameters from argument.
 
     // device position
     NSString *obj = [jsonData objectForKey:kDevicePositionKey];
-    if (obj != nil) {
-        if ([obj isEqualToString:@"front"]) {
+    if (obj != nil)
+    {
+        if ([obj isEqualToString:@"front"])
+        {
             _devicePosition = AVCaptureDevicePositionFront;
         }
-        else {
+        else
+        {
             _devicePosition = AVCaptureDevicePositionBack;
         }
     }
@@ -496,31 +527,72 @@
     // quaility
     obj = [jsonData objectForKey:kQualityKey];
     if (obj != nil)
+    {
         _quality = [obj intValue];
+    }
 
     // width
     obj = [jsonData objectForKey:kWidthKey];
     if (obj != nil)
+    {
         _width = [obj intValue];
+    }
 
     // height
     obj = [jsonData objectForKey:kHeightKey];
     if (obj != nil)
+    {
         _height = [obj intValue];
+    }
 
     // fps
     obj = [jsonData objectForKey:kFpsKey];
     if (obj != nil)
+    {
         _fps = [obj intValue];
+    }
+
+    obj = [jsonData objectForKey:kHasThumbnailKey];
+    if (obj != nil)
+    {
+        _hasThumbnail = [obj boolValue];
+    }
+
+    obj = [jsonData objectForKey:kThumbnailRatioKey];
+    if (obj != nil)
+    {
+        _thumbnailRatio = [obj doubleValue];
+    }
 }
 
-+ (UIImage *)resizeImage:(UIImage *)image toSize:(CGSize)newSize
+
++ (UIImage *)getResizedUIImage:(UIImage *)image ratio:(double)ratio
+{
+    if (ratio == 0) {
+        ratio = 1;
+    }
+
+    CGSize newSize = CGSizeMake((CGFloat)(image.size.width * ratio), (CGFloat)(image.size.height * ratio));
+    
+    return [CanvasCamera getResizedUIImage:image toSize:newSize];
+}
+
++ (UIImage *)getResizedUIImage:(UIImage *)image toSize:(CGSize)newSize landscape:(Boolean)landscape
+{
+    if (!landscape) {
+        newSize = CGSizeMake(newSize.height, newSize.width);
+    }
+
+    return [CanvasCamera getResizedUIImage:image toSize:newSize];
+}
+
++ (UIImage *)getResizedUIImage:(UIImage *)image toSize:(CGSize)newSize
 {
     UIGraphicsBeginImageContext(newSize);
     [image drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
-    UIImage* newImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+
     UIGraphicsEndImageContext();
     return newImage;
 }
-
 @end

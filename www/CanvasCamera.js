@@ -1,3 +1,4 @@
+cordova.define("com.virtuoworks.cordova-plugin-canvascamera.CanvasCamera", function(require, exports, module) {
 //
 //  CanvasCamera.js
 //  PhoneGap iOS Cordova Plugin to capture Camera streaming into a HTML5 Canvas or an IMG tag.
@@ -10,31 +11,59 @@
 
 var exec = require('cordova/exec');
 var CanvasCamera = function(){
-    var _userOptions = null;
-    var _canvasElement = null;
-    var _canvasContext = null;
-    var _imageElement = null;
-    var _onDrawCallback = null;
+    var _userOptions = {};
+
+    var _fullsizeElement = null;
+    var _fullsizeContext = null;
+    var _fullsizeImage = null;
+    var _onDrawFullsizeCallback = null;
+
+    var _thumbnailElement = null;
+    var _thumbnailContext = null;
+    var _thumbnailImage = null;
 };
 
-CanvasCamera.prototype.initialize = function(canvasElement) {
-    this._canvasElement = canvasElement;
-    this._canvasContext = canvasElement.getContext("2d");
-    this._imageElement = new Image();
-    this._imageElement.onload = function() {
-        this.setCanvasDimensions();
-        this.drawImage();
-        if(this._onDrawCallback) {
-          this._onDrawCallback(this._canvasContext);
+CanvasCamera.prototype.initialize = function(canvasElement, thumbnailElement) {
+    if (thumbnailElement !== undefined) {
+        this._thumbnailElement = thumbnailElement;
+        this._thumbnailContext = thumbnailElement.getContext("2d");
+
+        this._thumbnailImage = new Image();
+        this._thumbnailImage.onload = function() {
+        this.setThumbnailCanvasDimensions();
+        this.drawThumbnailImage();
+        if(this._onDrawThumbnailCallback) {
+          this._onDrawThumbnailCallback(this._thumbnailContext);
+        }
+        }.bind(this);
+    }
+
+    this._fullsizeElement = canvasElement;
+    this._fullsizeContext = canvasElement.getContext("2d");
+    this._fullsizeImage = new Image();
+    this._fullsizeImage.onload = function() {
+        this.setFullsizeCanvasDimensions();
+        this.drawFullsizeImage();
+        if(this._onDrawFullsizeCallback) {
+          this._onDrawFullsizeCallback(this._fullsizeContext);
         }
     }.bind(this);
 };
 
 CanvasCamera.prototype.start = function(options) {
     this._userOptions = options;
-/*    this._canvasElement.width = options.width;
-    this._canvasElement.height = options.height;*/
-    this.setCanvasDimensions();
+
+    this.setFullsizeCanvasDimensions();
+
+    if (this._thumbnailElement) {
+        this._userOptions.hasThumbnail = true;
+        
+        this.setThumbnailCanvasDimensions();
+
+    } else {
+        this._userOptions.hasThumbnail = false;
+    }
+
     cordova.exec(this.capture.bind(this), function(error) {
         console.log('start error', error);
     }, "CanvasCamera", "startCapture", [options]);
@@ -46,14 +75,24 @@ CanvasCamera.prototype.stop = function() {
     }, "CanvasCamera", "stopCapture", []);
 };
 
-CanvasCamera.prototype.capture = function(imgSrc) {
-    if (imgSrc) {
-        this._imageElement.src = imgSrc;
+CanvasCamera.prototype.capture = function(image) {
+    //console.log('images: ', image);
+    //console.log('typeof images: ', typeof image);
+    if (image && image.fullsize) {
+        this._fullsizeImage.src = image.fullsize;
+    }
+
+    if (image && image.thumbnail && this._thumbnailImage) {
+        this._thumbnailImage.src = image.thumbnail;
     }
 };
 
-CanvasCamera.prototype.setOnDraw = function(onDrawCallback) {
-  this._onDrawCallback = onDrawCallback || null;
+CanvasCamera.prototype.setOnDrawFullsize = function(onDrawFullsizeCallback) {
+  this._onDrawFullsizeCallback = onDrawFullsizeCallback || null;
+};
+
+CanvasCamera.prototype.setOnDrawThumbnail = function(onDrawThumbnailCallback) {
+  this._onDrawThumbnailCallback = onDrawThumbnailCallback || null;
 };
 
 CanvasCamera.prototype.setFlashMode = function(flashMode) {
@@ -85,107 +124,54 @@ CanvasCamera.prototype.getOrientation = function() {
 }
 
 CanvasCamera.prototype.getCanvasWidth = function() {
-    return this._canvasElement.width;
+    return this._fullsizeElement.width;
 }
 
 CanvasCamera.prototype.getCanvasHeight = function() {
-    return this._canvasElement.height;
+    return this._fullsizeElement.height;
 }
 
-CanvasCamera.prototype.setCanvasDimensions = function() {
+CanvasCamera.prototype.setFullsizeCanvasDimensions = function() {
     if (this._userOptions.width) {
-        this._canvasElement.width = this._userOptions.width;
+        this._fullsizeElement.width = this._userOptions.width;
     } else {
-        this._canvasElement.width = window.innerWidth;
+        this._fullsizeElement.width = window.innerWidth;
     }
 
     if (this._userOptions.height) {
-        this._canvasElement.height = this._userOptions.height;
+        this._fullsizeElement.height = this._userOptions.height;
     } else {
-        this._canvasElement.height = window.innerHeight;
+        this._fullsizeElement.height = window.innerHeight;
     }
 }
 
-CanvasCamera.prototype.drawImage = function() {
-    // console.log('window.orientation: ' + window.orientation);
-
-/*
-    var image = this._imageElement;
-    var context = this._canvasContext;
-    var canvasWidth = this._canvasElement.width = this._canvasElement.clientWidth;
-    var canvasHeight = this._canvasElement.height = this._canvasElement.clientHeight;
-
-    var desiredWidth = canvasWidth;
-    var desiredHeight = canvasHeight;
-
-    if (window.orientation != 90 && window.orientation != -90) {
-        console.log()
-        desiredWidth = canvasHeight;
-        desiredHeight = canvasWidth;
+CanvasCamera.prototype.setThumbnailCanvasDimensions = function() {
+    if (this._fullsizeElement && this._thumbnailElement) {
+        if (!this._userOptions.thumbnailRatio) {
+            this._userOptions.thumbnailRatio = 1/6;
+        }
+        this._thumbnailElement.width = parseInt(this._fullsizeElement.width * this._userOptions.thumbnailRatio);
+        this._thumbnailElement.height = parseInt(this._fullsizeElement.height * this._userOptions.thumbnailRatio);
     }
-
-    var imageWidth = image.width;
-    var imageHeight = image.height;
-    var ratio = Math.min(desiredWidth / imageWidth, desiredHeight / imageHeight);
-    var newWidth = imageWidth * ratio;
-    var newHeight = imageHeight * ratio;
-    var cropX, cropY, cropWidth, cropHeight, aspectRatio = 1;
-
-    //context.clearRect(0, 0, desiredWidth, desiredHeight);
-
-    // decide which gap to fill
-    if (newWidth < desiredWidth) {
-        aspectRatio = desiredWidth / newWidth;
-    }
-    if (newHeight < desiredHeight) {
-        aspectRatio = desiredHeight / newHeight;
-    }
-    newWidth *= aspectRatio;
-    newHeight *= aspectRatio;
-
-    // calc source rectangle
-    cropWidth = imageWidth / (newWidth / desiredWidth);
-    cropHeight = imageHeight / (newHeight / desiredHeight);
-
-    cropX = (imageWidth - cropWidth) * 0.5;
-    cropY = (imageHeight - cropHeight) * 0.5;
-
-    // make sure source rectangle is valid
-    if (cropX < 0) cropX = 0;
-    if (cropY < 0) cropY = 0;
-    if (cropWidth > imageWidth) cropWidth = imageWidth;
-    if (cropHeight > imageHeight) cropHeight = imageHeight;
-*/
+}
 
 
-
-    // rotate context according to orientation
-    /*context.save();
-    context.translate(canvasWidth / 2, canvasHeight / 2);
-    context.rotate((90 - window.orientation) * Math.PI/180);
-
-    // additional rotate for front facing camera in lanscape orientation
-    if (this._cameraPosition === 'front' &&
-        (window.orientation === 90 || window.orientation === -90))
-    {
-        context.rotate((180) * Math.PI/180);
-    }
-
-    // fill image in dest. rectangle
-    context.drawImage(image,
-        cropX, cropY, cropWidth, cropHeight,
-        -desiredWidth / 2, -desiredHeight / 2, desiredWidth, desiredHeight);
-
-    context.restore();
-    */
-
-
-    var image = this._imageElement;
-    var context = this._canvasContext;
+CanvasCamera.prototype.drawFullsizeImage = function() {
+    var image = this._fullsizeImage;
+    var context = this._fullsizeContext;
 
     context.drawImage(image, 0, 0, image.width, image.height);
 };
 
+CanvasCamera.prototype.drawThumbnailImage = function() {
+    var image = this._thumbnailImage;
+    console.log('drawThumbnailImage: ', image);
+    var context = this._thumbnailContext;
+
+    context.drawImage(image, 0, 0, image.width, image.height);
+};
 
 var CanvasCamera = new CanvasCamera();
 module.exports = CanvasCamera;
+
+});

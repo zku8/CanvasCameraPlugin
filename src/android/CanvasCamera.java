@@ -45,6 +45,8 @@ public class CanvasCamera extends CordovaPlugin {
   private final static String kWidthKey = "width";
   private final static String kHeightKey = "height";
   private final static String kLensOrientationKey = "cameraPosition";
+  private final static String kHasThumbnailKey = "hasThumbnail";
+  private final static String kThumbnailRatioKey = "thumbnailRatio";
 
   private Activity mActivity;
   private TextureView mTextureView = null;
@@ -64,6 +66,8 @@ public class CanvasCamera extends CordovaPlugin {
   private int mWidth;
   private int mHeight;
   private int mLensOrientation;
+  private boolean mHasThumbnail;
+  private double mThumbnailRatio;
 
   @Override
   public void onResume(boolean multitasking) {
@@ -123,6 +127,8 @@ public class CanvasCamera extends CordovaPlugin {
     mFps = 30;
     mWidth = 352;
     mHeight = 288;
+    mHasThumbnail = false;
+    mThumbnailRatio = 1 / 6;
     mLensOrientation = Camera.CameraInfo.CAMERA_FACING_BACK;
 
     // parse options
@@ -244,16 +250,40 @@ public class CanvasCamera extends CordovaPlugin {
 
   private final Camera.PreviewCallback mCameraPreviewCallback = new Camera.PreviewCallback() {
     @Override
-    public void onPreviewFrame(byte[] data, Camera camera) {
-      data = convertImageToJpeg(data);
-      data = rotateImage(data, mOrientation);
+    public void onPreviewFrame(final byte[] data, Camera camera) {
 
-      File file = getImageFile();
-      saveImage(data, file);
+      new Thread(new Runnable() {
+        public void run() {
+          JSONObject imageFiles = new JSONObject();
 
-      PluginResult result = new PluginResult(PluginResult.Status.OK, file.getPath());
-      result.setKeepCallback(true);
-      mCallbackContext.sendPluginResult(result);
+          byte[] dataFull;
+          dataFull = convertImageToJpeg(data, mPreviewWidth, mPreviewHeight);
+          dataFull = rotateImage(dataFull, mOrientation, mPreviewWidth, mPreviewHeight);
+
+          File file = getImageFile("f");
+          saveImage(dataFull, file);
+          try {
+            imageFiles.accumulate("fullsize", file.getPath());
+          } catch (JSONException e) {
+            Log.e(TAG, "Cannot add fullsize " + e.getMessage());
+          }
+
+          if (mHasThumbnail) {
+            byte[] dataThumb = resizeImage(dataFull);
+            file = getImageFile("t");
+            saveImage(dataThumb, file);
+            try {
+              imageFiles.accumulate("thumbnail", file.getPath());
+            } catch (JSONException e) {
+              Log.e(TAG, "Cannot add thumbnail " + e.getMessage());
+            }
+          }
+
+          PluginResult result = new PluginResult(PluginResult.Status.OK, imageFiles);
+          result.setKeepCallback(true);
+          mCallbackContext.sendPluginResult(result);
+        }
+      }).start();
     }
   };
 
@@ -362,9 +392,10 @@ public class CanvasCamera extends CordovaPlugin {
     Camera.Size bigEnough = params.getSupportedPictureSizes().get(0);
 
     for (Camera.Size size : params.getSupportedPictureSizes()) {
-      if (size.width >= mWidth && size.height >= mHeight
-        && size.width < bigEnough.width
-        && size.height < bigEnough.height
+      if (size.width >= mWidth &&
+          size.height >= mHeight &&
+          size.width < bigEnough.width &&
+          size.height < bigEnough.height
         ) {
         bigEnough = size;
       }
@@ -423,17 +454,17 @@ public class CanvasCamera extends CordovaPlugin {
     mActivity.addContentView(view, new ViewGroup.LayoutParams(screenWidth, screenHeight));
   }
 
-  private File getImageFile() {
+  private File getImageFile(String prefix) {
     File dir = mActivity.getExternalFilesDir(null);
 
     mFileId++;
     boolean deleted;
     if (mFileId > 10) {
-      File prevFile = new File(dir, (mFileId - 10) + ".jpg");
+      File prevFile = new File(dir, prefix + (mFileId - 10) + ".jpg");
       deleted = prevFile.delete();
     }
 
-    return new File(dir, mFileId + ".jpg");
+    return new File(dir, prefix + mFileId + ".jpg");
   }
 
   private void saveImage(byte[] bytes, File file) {
@@ -456,15 +487,15 @@ public class CanvasCamera extends CordovaPlugin {
     }
   }
 
-  private byte[] convertImageToJpeg(byte[] data) {
-    YuvImage yuvImage = new YuvImage(data, mPreviewFormat, mPreviewWidth, mPreviewHeight, null);
-    Rect rect = new Rect(0, 0, mPreviewWidth, mPreviewHeight);
+  private byte[] convertImageToJpeg(byte[] data, int width, int height) {
+    YuvImage yuvImage = new YuvImage(data, mPreviewFormat, width, height, null);
+    Rect rect = new Rect(0, 0, width, height);
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     yuvImage.compressToJpeg(rect, 80, outputStream);
     return outputStream.toByteArray();
   }
 
-  private byte[] rotateImage(byte[] data, int angle) {
+  private byte[] rotateImage(byte[] data, int angle, int width, int height) {
     Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
     ByteArrayOutputStream rotatedStream = new ByteArrayOutputStream();
 
@@ -478,10 +509,25 @@ public class CanvasCamera extends CordovaPlugin {
 
     matrix.postRotate(angle);
 
-    bitmap = Bitmap.createBitmap(bitmap, 0, 0, mPreviewWidth, mPreviewHeight, matrix, false);
+    bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
 
     bitmap.compress(Bitmap.CompressFormat.JPEG, 80, rotatedStream);
     return rotatedStream.toByteArray();
+  }
+
+  private byte[] resizeImage(byte[] data) {
+    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+    int targetWidth = (int)(bitmap.getWidth() * mThumbnailRatio);
+    int targetHeight = (int)(bitmap.getHeight() * mThumbnailRatio);
+
+    if (targetWidth > 0 && targetHeight > 0) {
+        bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+        ByteArrayOutputStream resizedStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, resizedStream);
+        return resizedStream.toByteArray();
+    } else {
+        return data;
+    }
   }
 
   private void getOptions(JSONObject jsonData) throws Exception {
@@ -513,6 +559,17 @@ public class CanvasCamera extends CordovaPlugin {
     if (jsonData.has(kHeightKey)) {
       mHeight = jsonData.getInt(kHeightKey);
     }
+
+    // hasThumbnail
+    if (jsonData.has(kHasThumbnailKey)) {
+      mHasThumbnail = jsonData.getBoolean(kHasThumbnailKey);
+    }
+
+    // thumbnailRatio
+    if (jsonData.has(kThumbnailRatioKey)) {
+       mThumbnailRatio = jsonData.getDouble(kThumbnailRatioKey);
+    }
+
   }
 
 }
