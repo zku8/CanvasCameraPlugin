@@ -165,7 +165,6 @@ CanvasCamera.prototype.drawFullsizeImage = function() {
 
 CanvasCamera.prototype.drawThumbnailImage = function() {
     var image = this._thumbnailImage;
-    console.log('drawThumbnailImage: ', image);
     var context = this._thumbnailContext;
 
     context.drawImage(image, 0, 0, image.width, image.height);

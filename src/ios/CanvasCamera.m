@@ -341,11 +341,11 @@
                 i++;
 
                 NSString *fullImagePath = [CanvasCamera getFilePath:@"f" idx:i ext:@"jpg"];
-                dictionary[@"fullsize"] = fullImagePath;
 
                 // Write the data to the file
                 [fullImageData writeToFile:fullImagePath atomically:YES];
                 fullImagePath = [NSString stringWithFormat:@"file://%@", fullImagePath];
+                dictionary[@"fullsize"] = fullImagePath;
 
                 if (thumbImageData) {
                     NSString *thumbImagePath = [CanvasCamera getFilePath:@"t" idx:i ext:@"jpg"];
