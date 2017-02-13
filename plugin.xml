@@ -26,6 +26,11 @@
         </feature>
       </config-file>
 
+      <preference name="CAMERA_USAGE_DESCRIPTION" default="Display video preview" />
+      <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
+          <string>$CAMERA_USAGE_DESCRIPTION</string>
+      </config-file>
+
       <header-file src="src/ios/CanvasCamera.h" />
       <source-file src="src/ios/CanvasCamera.m" />
 
