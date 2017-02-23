@@ -107,28 +107,6 @@ CanvasCamera.prototype.setCameraPosition = function(cameraPosition) {
     }, "CanvasCamera", "setCameraPosition", [cameraPosition]);
 };
 
-CanvasCamera.prototype.getOrientation = function() {
-    let currentOrientation = "";
-    if (window.orientation == 0) {
-        currentOrientation = "portrait";
-    } else if (window.orientation == 90) {
-        currentOrientation = "landscape";
-    } else if (window.orientation == -90) {
-        currentOrientation = "landscape";
-    } else if (window.orientation == 180) {
-        currentOrientation = "portrait";
-    }
-    return currentOrientation
-}
-
-CanvasCamera.prototype.getCanvasWidth = function() {
-    return this._fullsizeElement.width;
-}
-
-CanvasCamera.prototype.getCanvasHeight = function() {
-    return this._fullsizeElement.height;
-}
-
 CanvasCamera.prototype.setFullsizeCanvasDimensions = function() {
     if (this._userOptions.width) {
         this._fullsizeElement.width = this._userOptions.width;
@@ -152,7 +130,6 @@ CanvasCamera.prototype.setThumbnailCanvasDimensions = function() {
         this._thumbnailElement.height = parseInt(this._fullsizeElement.height * this._userOptions.thumbnailRatio);
     }
 }
-
 
 CanvasCamera.prototype.drawFullsizeImage = function() {
     var image = this._fullsizeImage;

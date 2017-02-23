@@ -8,7 +8,7 @@
 
     <description>Canvas Camera plug-in for Android and iOS.</description>
     <repo>https://github.com/VirtuoWorks/CanvasCameraPlugin.git</repo>
-    <keywords>camera, canvas camera, take photos</keywords>
+    <keywords>camera, canvas camera</keywords>
     <license>MIT</license>
     <author>VirtuoWorks</author>
 
