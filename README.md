@@ -28,7 +28,7 @@ cordova plugin add https://github.com/VirtuoWorks/CanvasCameraPlugin.git && cord
 Through the [Command-line Interface][CLI]:
 
 ```bash
-cordova plugin remove com.virtuoworks.cordova-plugin-canvas-camera
+cordova plugin remove com.virtuoworks.cordova-plugin-canvascamera
 ```
 
 ## Using the plugin
