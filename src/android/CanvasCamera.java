@@ -9,20 +9,14 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
-import android.media.FaceDetector;
-import android.media.FaceDetector.Face;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Surface;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowManager;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -79,13 +73,9 @@ public class CanvasCamera extends CordovaPlugin {
 
     private JSONArray mArgs;
     private CallbackContext mCurrentCallbackContext;
-    private CallbackContext mStopCaptureCallbackContext;
     private CallbackContext mStartCaptureCallbackContext;
-    private CallbackContext mFlashModeCallbackContext;
-    private CallbackContext mCameraPositionCallbackContext;
 
     private int mFileId = 0;
-    private int mCameraRotation = 0;
     private int mDisplayOrientation = 0;
 
     private Camera mCamera;
@@ -160,14 +150,6 @@ public class CanvasCamera extends CordovaPlugin {
                             JSONObject fullsize = new JSONObject();
                             try {
                                 images.put("fullsize", fullsize);
-
-                                try {
-                                    fullsize.put("tracking", tracking);
-                                } catch (JSONException e) {
-                                    if (LOGGING)
-                                        Log.e(TAG, "Cannot put data.output.images.fullsize.tracking into JSON result : " + e.getMessage());
-                                }
-
 
                                 try {
                                     fullsize.put("rotation", displayOrientation);
@@ -302,11 +284,6 @@ public class CanvasCamera extends CordovaPlugin {
     }
 
     @Override
-    public void onPause(boolean multitasking) {
-        super.onPause(multitasking);
-    }
-
-    @Override
     public void onResume(boolean multitasking) {
         super.onResume(multitasking);
         if (mPreviewing) {
@@ -354,7 +331,7 @@ public class CanvasCamera extends CordovaPlugin {
                 if (LOGGING) Log.i(TAG, "Starting async stopCapture thread...");
                 mActivity.runOnUiThread(new Runnable() {
                     public void run() {
-                        stopCapture(mArgs, mCurrentCallbackContext);
+                        stopCapture(mCurrentCallbackContext);
                     }
                 });
                 return true;
@@ -428,7 +405,7 @@ public class CanvasCamera extends CordovaPlugin {
                 if (LOGGING) Log.i(TAG, "Starting async stopCapture thread...");
                 mActivity.runOnUiThread(new Runnable() {
                     public void run() {
-                        stopCapture(mArgs, mCurrentCallbackContext);
+                        stopCapture(mCurrentCallbackContext);
                     }
                 });
                 break;
@@ -481,22 +458,18 @@ public class CanvasCamera extends CordovaPlugin {
         startCapture(mStartCaptureCallbackContext);
     }
 
-    private synchronized void stopCapture(JSONArray args, CallbackContext callbackContext) {
-        mStopCaptureCallbackContext = callbackContext;
-
+    private synchronized void stopCapture(CallbackContext stopCaptureCallbackContext) {
         try {
             stopCamera();
             if (LOGGING) Log.i(TAG, "Capture stopped.");
-            mStopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, getPluginResultMessage("Capture stopped.")));
+            stopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, getPluginResultMessage("Capture stopped.")));
         } catch (Exception e) {
             if (LOGGING) Log.e(TAG, "Could not stop capture : " + e.getMessage());
-            mStopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.IO_EXCEPTION, getPluginResultMessage(e.getMessage())));
+            stopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.IO_EXCEPTION, getPluginResultMessage(e.getMessage())));
         }
     }
 
-    private synchronized void flashMode(JSONArray args, CallbackContext callbackContext) {
-        mFlashModeCallbackContext = callbackContext;
-
+    private synchronized void flashMode(JSONArray args, CallbackContext flashModeCallbackContext) {
         if (mCamera != null) {
             boolean isFlashModeOn;
 
@@ -504,7 +477,7 @@ public class CanvasCamera extends CordovaPlugin {
                 isFlashModeOn = args.getBoolean(0);
             } catch (Exception e) {
                 if (LOGGING) Log.e(TAG, "Failed to set flash mode : " + e.getMessage());
-                mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
+                flashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
                 return;
             }
 
@@ -513,25 +486,23 @@ public class CanvasCamera extends CordovaPlugin {
             if (startCamera()) {
                 if (mStartCaptureCallbackContext != null) {
                     if (LOGGING) Log.i(TAG, "Flash mode applied !");
-                    mFlashModeCallbackContext.success(getPluginResultMessage("OK"));
+                    flashModeCallbackContext.success(getPluginResultMessage("OK"));
                 } else {
                     if (LOGGING)
                         Log.w(TAG, "Could not set flash mode. No capture callback available !");
-                    mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No capture callback available !")));
+                    flashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No capture callback available !")));
                 }
             } else {
                 if (LOGGING) Log.w(TAG, "Could not set flash mode. Could not start camera !");
-                mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. Could not start camera !")));
+                flashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. Could not start camera !")));
             }
         } else {
             if (LOGGING) Log.w(TAG, "Could not set flash mode. No camera available !");
-            mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No camera available !")));
+            flashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No camera available !")));
         }
     }
 
-    private synchronized void cameraPosition(JSONArray args, CallbackContext callbackContext) {
-        mCameraPositionCallbackContext = callbackContext;
-
+    private synchronized void cameraPosition(JSONArray args, CallbackContext cameraPositionCallbackContext) {
         if (mCamera != null) {
             String cameraPosition;
 
@@ -539,7 +510,7 @@ public class CanvasCamera extends CordovaPlugin {
                 cameraPosition = args.getString(0);
             } catch (Exception e) {
                 if (LOGGING) Log.e(TAG, "Failed to switch camera : " + e.getMessage());
-                mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
+                cameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
                 return;
             }
 
@@ -548,19 +519,19 @@ public class CanvasCamera extends CordovaPlugin {
             if (startCamera()) {
                 if (mStartCaptureCallbackContext != null) {
                     if (LOGGING) Log.i(TAG, "Camera switched !");
-                    mCameraPositionCallbackContext.success(getPluginResultMessage("OK"));
+                    cameraPositionCallbackContext.success(getPluginResultMessage("OK"));
                 } else {
                     if (LOGGING)
                         Log.w(TAG, "Could not switch camera. No capture callback available !");
-                    mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No capture callback available !")));
+                    cameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No capture callback available !")));
                 }
             } else {
                 if (LOGGING) Log.w(TAG, "Could not switch camera. Could not start camera !");
-                mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. Could not start camera !")));
+                cameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. Could not start camera !")));
             }
         } else {
             if (LOGGING) Log.w(TAG, "Could not switch camera. No camera available !");
-            mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No camera available !")));
+            cameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No camera available !")));
         }
     }
 
@@ -703,7 +674,7 @@ public class CanvasCamera extends CordovaPlugin {
                     Log.i(TAG, "Preview size is set to w : " + mPreviewSize.width + ", h : " + mPreviewSize.height + ".");
             }
             // sets camera rotation
-            mCameraRotation = getCameraRotation();
+            int mCameraRotation = getCameraRotation();
             parameters.setRotation(mCameraRotation);
             // sets optimal preview fps range.
             mPreviewFpsRange = getOptimalFrameRate(parameters);
@@ -936,16 +907,17 @@ public class CanvasCamera extends CordovaPlugin {
             if (LOGGING) Log.v(TAG, "Deleting cached files...");
             File dir = mActivity.getExternalFilesDir(null);
 
-            File[] filesList = dir.listFiles();
-            for (int i = 0; i < filesList.length; i++) {
-                if (filesList[i].isFile()) {
-                    String fileName = filesList[i].getName();
+            File[] filesList = dir != null ? dir.listFiles() : new File[0];
+            for (File aFilesList : filesList) {
+                if (aFilesList.isFile()) {
+                    String fileName = aFilesList.getName();
                     int found = fileName.lastIndexOf("-canvascamera.jpg");
                     if (found > 0) {
-                        if (filesList[i].delete()) {
+                        if (aFilesList.delete()) {
                             if (LOGGING) Log.v(TAG, "Cached file " + fileName + " deleted !");
                         } else {
-                            if (LOGGING) Log.w(TAG, "Could not delete cached file " + fileName + ".");
+                            if (LOGGING)
+                                Log.w(TAG, "Could not delete cached file " + fileName + ".");
                         }
                     }
                 }
@@ -1060,7 +1032,7 @@ public class CanvasCamera extends CordovaPlugin {
         return scaledByteStream.toByteArray();
     }
 
-    public int[] calculateAspectRatio(int origWidth, int origHeight, int targetWidth, int targetHeight) {
+    private int[] calculateAspectRatio(int origWidth, int origHeight, int targetWidth, int targetHeight) {
         int newWidth = targetWidth;
         int newHeight = targetHeight;
 
@@ -1423,11 +1395,7 @@ public class CanvasCamera extends CordovaPlugin {
     }
 
     private boolean getFlashModeAsBoolean(String constant) {
-        if (constant != null) {
-            return constant.equals(Camera.Parameters.FLASH_MODE_TORCH);
-        } else {
-            return false;
-        }
+        return constant != null && constant.equals(Camera.Parameters.FLASH_MODE_TORCH);
     }
 
     private int getCurrentOrientation() {

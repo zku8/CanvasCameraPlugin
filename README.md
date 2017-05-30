@@ -1,7 +1,10 @@
+[![NPM Version][npm-image]][npm-url]
+[![NPM Downloads][downloads-image]][downloads-url]
+
 # CanvasCamera Plugin
 
 ## Plugin's Purpose
-The purpose of the plugin is to capture video to preview camera in a web page's canvas element.<br>
+The purpose of the plugin is to capture video to preview camera in a web page's canvas element.
 Allows to select front or back camera and to control the flash.
 
 ## Supported Platforms
@@ -174,10 +177,13 @@ CanvasCamera.start(options);
 
 ## License
 
-This software is released under the [MIT License][mit_license].
+This software is released under the [MIT License][mit-license].
 
 [cordova]: https://cordova.apache.org
-[PGB_plugin]: https://build.phonegap.com/
-[CLI]: http://cordova.apache.org/docs/en/latest/guide/cli/index.html
 [PGB]: http://docs.phonegap.com/phonegap-build/
-[mit_license]: https://opensource.org/licenses/MIT
+[CLI]: http://cordova.apache.org/docs/en/latest/guide/cli/index.html
+[mit-license]: https://opensource.org/licenses/MIT
+[npm-image]: https://img.shields.io/npm/v/com.virtuoworks.cordova-plugin-canvascamera.svg
+[npm-url]: https://www.npmjs.com/package/com.virtuoworks.cordova-plugin-canvascamera
+[downloads-image]: https://img.shields.io/npm/dm/com.virtuoworks.cordova-plugin-canvascamera.svg
+[downloads-url]: https://www.npmjs.com/package/com.virtuoworks.cordova-plugin-canvascamera

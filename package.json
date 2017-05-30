@@ -1,6 +1,6 @@
 {
   "name": "com.virtuoworks.cordova-plugin-canvascamera",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "A Cordova plugin to display video from the device's camera into an HTML canvas element.",
   "repository": "https://github.com/VirtuoWorks/CanvasCameraPlugin.git",
   "cordova": {
@@ -13,7 +13,10 @@
   "keywords": [
     "ecosystem:cordova",
     "cordova-android",
-    "cordova-ios"
+    "cordova-ios",
+    "cordova",
+    "camera",
+    "canvas"
   ],
   "contributors": [
     {
@@ -31,5 +34,12 @@
       "url" : "https://github.com/Sebastien-Guillon"
     }
   ],
+  "engines": {
+    "cordovaDependencies": {
+      "3.0.0": {
+        "cordova": ">100"
+      }
+    }
+  },
   "license": "MIT"
 }

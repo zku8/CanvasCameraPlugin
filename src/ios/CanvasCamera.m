@@ -1,10 +1,10 @@
 /**
-*  CanvasCamera.js
-*  PhoneGap iOS and Android Cordova Plugin to capture Camera streaming into an HTML5 Canvas.
+* CanvasCamera.js
+* PhoneGap iOS and Android Cordova Plugin to capture Camera streaming into an HTML5 Canvas.
 *
-*  VirtuoWorks <contact@virtuoworks.com>.
+* VirtuoWorks <contact@virtuoworks.com>.
 *
-*  MIT License
+* MIT License
 */
 
 #import "CanvasCamera.h"
