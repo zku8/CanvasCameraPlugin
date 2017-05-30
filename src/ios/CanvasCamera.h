@@ -1,10 +1,11 @@
-//
-//  CanvasCamera.js
-//  PhoneGap iOS Cordova Plugin to capture Camera streaming into a HTML5 Canvas or an IMG tag.
-//
-//  Created by Diego Araos <d@wehack.it> on 12/29/12.
-//
-//  MIT License
+/**
+* CanvasCamera.js
+* PhoneGap iOS and Android Cordova Plugin to capture Camera streaming into an HTML5 Canvas.
+*
+* VirtuoWorks <contact@virtuoworks.com>.
+*
+* MIT License
+*/
 
 #import <Cordova/CDVPlugin.h>
 #import <UIKit/UIKit.h>
@@ -16,16 +17,9 @@
 
 @interface CanvasCamera : CDVPlugin <AVCaptureVideoDataOutputSampleBufferDelegate>
 
-@property (nonatomic, strong) AVCaptureSession *session;
-@property (nonatomic, strong) AVCaptureDevice *device;
-@property (nonatomic, strong) AVCaptureDeviceInput *input;
-@property (nonatomic, strong) AVCaptureVideoDataOutput *output;
-@property (nonatomic, strong) AVCaptureStillImageOutput *stillImageOutput;
-
 - (void)startCapture:(CDVInvokedUrlCommand *)command;
 - (void)stopCapture:(CDVInvokedUrlCommand *)command;
-
-- (void)setFlashMode:(CDVInvokedUrlCommand *)command;
-- (void)setCameraPosition:(CDVInvokedUrlCommand *)command;
+- (void)flashMode:(CDVInvokedUrlCommand *)command;
+- (void)cameraPosition:(CDVInvokedUrlCommand *)command;
 
 @end

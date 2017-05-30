@@ -1,6 +1,5 @@
 # CanvasCamera Plugin
 
-
 ## Plugin's Purpose
 The purpose of the plugin is to capture video to preview camera in a web page's canvas element.<br>
 Allows to select front or back camera and to control the flash.
@@ -85,20 +84,48 @@ Optional parameters to customize the settings.
 
 ```javascript
 {
-  cameraPosition: 'front',
-  fps: 30,
-  width: 640,
-  height: 480,
-  thumbnailRatio: 1/6
+    width: 352,
+    height: 288,
+    canvas: {
+      width: 352,
+      height: 288
+    },
+    capture: {
+      width: 352,
+      height: 288
+    },
+    fps: 30,
+    use: 'file',
+    flashMode: false,
+    thumbnailRatio: 1/6,
+    cameraFacing: 'front' // or 'back',
+    onBeforeDraw: function(frame){
+      // do something before drawing a frame
+    },
+    onAfterDraw: function(frame){
+      // do something after drawing a frame
+    }
 }
+
 ```
+- `width` : **Number**, optional, default : `352`, width in pixels of the video to capture **and** the output canvas width in pixels.
+- `height` : **Number**, optional, default : `288`, height in pixels of the video to capture **and** the output canvas height in pixels.
 
-- `cameraPosition` **String**, 'front' or 'back'.
-- `fps` **Number**, desired number of frames per second.
-- `width` **Number**, width in pixels of the video to capture.
-- `height` **Number**, height in pixels of the video to capture.
-- `thumbnailRatio` **Number**, a ratio used to scale down the thumbnail.
+- `capture.width` : **Number**, optional, default : `352`, width in pixels of the video to capture.
+- `capture.height` : **Number**, optional, default : `288`, height in pixels of the video to capture.
 
+- `canvas.width` : **Number**, optional, default : `352`, output canvas width in pixels.
+- `canvas.height` : **Number**, optional, default : `288`, output canvas height in pixels.
+
+- `fps` : **Number**, optional, default : `30`, desired number of frames per second.
+- `cameraFacing` : **String**, optional, default : `'front'`, `'front'` or `'back'`.
+- `flashMode` : **Boolean**, optional, default : `false`, a boolean to set flash mode on/off.
+- `thumbnailRatio` : **Number**, optional, default : `1/6`, a ratio used to scale down the thumbnail.
+
+- `use` : **String**, optional, default : `file`, `file` to use files for rendering (lower CPU / higher storage) or `data` to use base64 jpg data for rendering (higher cpu / lower storage).
+
+- `onBeforeDraw` : **Function**, optional, default : `null`, callback executed before a frame has been drawn. `frame` contains the canvas element, the image element, the tracking data, ...
+- `onAfterDraw` : **Function**, optional, default : `null`,  callback executed after a frame has been drawn. `frame` contains the canvas element, the image element, the tracking data, ...
 
 ## Usage
 
@@ -110,13 +137,12 @@ CanvasCamera.initialize(fullsizeCanvasElement);
 
 let options:CanvasCamera.CanvasCameraOptions = {
     cameraPosition: 'back',
+    onAfterDraw: function(frame) {
+      // do something with each frame
+    }
 };
 
 CanvasCamera.start(options);
-
-CanvasCamera.setOnDrawFullsize(function(fullsizeCtx) {
-    // do something with fullsize video
-}.bind(this));
 ```
 
 ### With thumbnail video
@@ -124,25 +150,19 @@ CanvasCamera.setOnDrawFullsize(function(fullsizeCtx) {
 let fullsizeCanvasElement = document.getElementById('fullsize-canvas');
 let thumbnailCanvasElement = document.getElementById('thumbnail-canvas');
 
-CanvasCamera.initialize(fullsizeCanvasElement,thumbnailCanvasElement);
+CanvasCamera.initialize(fullsizeCanvasElement, thumbnailCanvasElement);
 
 let options:CanvasCamera.CanvasCameraOptions = {
     cameraPosition: 'front',
     fps: 15,
-    thumbnailRatio: 1/6
+    thumbnailRatio: 1/6,
+    onAfterDraw: function(frame) {
+      // do something with each frame of the fullsize canvas element only
+    }
 };
 
 CanvasCamera.start(options);
-
-CanvasCamera.setOnDrawFullsize(function(fullsizeCtx) {
-    // do something with fullsize video
-}.bind(this));
-
-CanvasCamera.setOnDrawThumbnail(function(thumbnailCtx) {
-    // do something with thumbnail video
-}.bind(this));
 ```
-
 
 ## Contributing
 
@@ -151,7 +171,6 @@ CanvasCamera.setOnDrawThumbnail(function(thumbnailCtx) {
 3. Commit your changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
-
 
 ## License
 

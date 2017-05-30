@@ -1,575 +1,1496 @@
-package com.virtuoworks.cordovaplugincanvascamera;
+package com.virtuoworks.cordova.plugin.canvascamera;
 
+import android.Manifest;
 import android.app.Activity;
-import android.util.Log;
-
-import java.util.List;
-
 import android.content.Context;
-import android.content.res.Configuration;
-
 import android.content.pm.PackageManager;
-import android.hardware.Camera;
-import android.graphics.SurfaceTexture;
-import android.graphics.YuvImage;
+import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.PointF;
 import android.graphics.Rect;
-
-import java.io.ByteArrayOutputStream;
-
-import android.view.TextureView;
+import android.graphics.YuvImage;
+import android.hardware.Camera;
+import android.media.FaceDetector;
+import android.media.FaceDetector.Face;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.util.Base64;
+import android.util.Log;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.view.Surface;
-import android.graphics.Matrix;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 
 import org.apache.cordova.CallbackContext;
+import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.PermissionHelper;
 import org.apache.cordova.PluginResult;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CanvasCamera extends CordovaPlugin {
-  private final static String TAG = "CanvasCamera";
+    private final static String TAG = "CanvasCamera";
+    private final static boolean LOGGING = false; //false to disable logging
 
-  private final static String kFpsKey = "fps";
-  private final static String kWidthKey = "width";
-  private final static String kHeightKey = "height";
-  private final static String kLensOrientationKey = "cameraPosition";
-  private final static String kHasThumbnailKey = "hasThumbnail";
-  private final static String kThumbnailRatioKey = "thumbnailRatio";
+    private final static String K_FPS_KEY = "fps";
+    private final static String K_WIDTH_KEY = "width";
+    private final static String K_HEIGHT_KEY = "height";
+    private final static String K_CANVAS_KEY = "canvas";
+    private final static String K_CAPTURE_KEY = "capture";
+    private final static String K_FLASH_MODE_KEY = "flashMode";
+    private final static String K_HAS_THUMBNAIL_KEY = "hasThumbnail";
+    private final static String K_THUMBNAIL_RATIO_KEY = "thumbnailRatio";
+    private final static String K_LENS_ORIENTATION_KEY = "cameraPosition";
 
-  private Activity mActivity;
-  private TextureView mTextureView = null;
+    private static final int SEC_START_CAPTURE = 0;
+    private static final int SEC_STOP_CAPTURE = 1;
+    private static final int SEC_FLASH_MODE = 2;
+    private static final int SEC_CAMERA_POSITION = 3;
 
-  private Camera mCamera;
-  private int mPreviewFormat;
-  private CallbackContext mCallbackContext;
+    private final static String[] FILENAMES = {"fullsize", "thumbnail"};
+    private final static String[] PERMISSIONS = {Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
 
-  private int mFileId = 0;
-  private int mCameraId = 0;
+    private int mFps;
+    private int mWidth;
+    private int mHeight;
+    private int mCameraFacing;
+    private String mFlashMode;
+    private int mCanvasHeight;
+    private int mCanvasWidth;
+    private int mCaptureHeight;
+    private int mCaptureWidth;
+    private boolean mHasThumbnail;
+    private double mThumbnailRatio;
 
-  private int mOrientation = 0;
-  private int mPreviewWidth = 0;
-  private int mPreviewHeight = 0;
+    private JSONArray mArgs;
+    private CallbackContext mCurrentCallbackContext;
+    private CallbackContext mStopCaptureCallbackContext;
+    private CallbackContext mStartCaptureCallbackContext;
+    private CallbackContext mFlashModeCallbackContext;
+    private CallbackContext mCameraPositionCallbackContext;
 
-  private int mFps;
-  private int mWidth;
-  private int mHeight;
-  private int mLensOrientation;
-  private boolean mHasThumbnail;
-  private double mThumbnailRatio;
+    private int mFileId = 0;
+    private int mCameraRotation = 0;
+    private int mDisplayOrientation = 0;
 
-  @Override
-  public void onResume(boolean multitasking) {
-    if (mTextureView != null) {
-      initPreviewSurface();
-    }
-  }
+    private Camera mCamera;
+    private int mOrientation;
+    private int mCameraId = 0;
+    private int mPreviewFormat;
+    private int[] mPreviewFpsRange;
+    private String mPreviewFocusMode;
+    private Camera.Size mPreviewSize;
+    private boolean mPreviewing = false;
 
-  @Override
-  public void onConfigurationChanged(Configuration newConfig) {
-    setCurrentOrientation();
-  }
+    private Activity mActivity;
 
-  @Override
-  public boolean execute(String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException {
-    mActivity = this.cordova.getActivity();
-
-    if ("startCapture".equals(action)) {
-      Log.d(TAG, "Starting startCapture thread...");
-      mActivity.runOnUiThread(new Runnable() {
-        public void run() {
-          startCapture(args, callbackContext);
-        }
-      });
-      return true;
-    } else if ("stopCapture".equals(action)) {
-      Log.d(TAG, "Starting stopCapture thread...");
-      mActivity.runOnUiThread(new Runnable() {
-        public void run() {
-          stopCapture(args, callbackContext);
-        }
-      });
-      return true;
-    } else if ("setFlashMode".equals(action)) {
-      Log.d(TAG, "Starting setFlashMode thread...");
-      mActivity.runOnUiThread(new Runnable() {
-        public void run() {
-          setFlashMode(args, callbackContext);
-        }
-      });
-      return true;
-    } else if ("setCameraPosition".equals(action)) {
-      Log.d(TAG, "Starting setCameraPosition thread...");
-      mActivity.runOnUiThread(new Runnable() {
-        public void run() {
-          setCameraPosition(args, callbackContext);
-        }
-      });
-      return true;
-    }
-
-    return false;
-  }
-
-  private void startCapture(JSONArray args, CallbackContext callbackContext) {
-    // init parameters - default values
-    mFps = 30;
-    mWidth = 352;
-    mHeight = 288;
-    mHasThumbnail = false;
-    mThumbnailRatio = 1 / 6;
-    mLensOrientation = Camera.CameraInfo.CAMERA_FACING_BACK;
-
-    // parse options
-    try {
-      JSONObject jsonData = args.getJSONObject(0);
-      getOptions(jsonData);
-    } catch (Exception e) {
-      Log.e(TAG, "Options parsing error: " + e.getMessage());
-    }
-
-    if (checkCameraHardware(mActivity)) {
-      mCallbackContext = callbackContext;
-      PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
-      result.setKeepCallback(true);
-      callbackContext.sendPluginResult(result);
-      Log.d(TAG, "Initializing preview surface...");
-      initPreviewSurface();
-    } else {
-      Log.e(TAG, "No camera detected");
-    }
-  }
-
-  private void stopCapture(JSONArray args, CallbackContext callbackContext) {
-    try {
-      ((ViewGroup) mTextureView.getParent()).removeView(mTextureView);
-      mTextureView = null;
-      callbackContext.success(args);
-    } catch (Exception e) {
-      callbackContext.error("Couldn't stop camera");
-      Log.e(TAG, "Couldn't stop camera : " + e.getMessage());
-    }
-  }
-
-  private void setFlashMode(JSONArray args, CallbackContext callbackContext) {
-    try {
-      String flashMode;
-      boolean isFlashModeOn = args.getBoolean(0);
-
-      if (isFlashModeOn) {
-        flashMode = Camera.Parameters.FLASH_MODE_TORCH;
-      } else {
-        flashMode = Camera.Parameters.FLASH_MODE_OFF;
-      }
-
-      if (mCamera != null) {
-        Camera.Parameters params = mCamera.getParameters();
-        params.setFlashMode(flashMode);
-        mCamera.setParameters(params);
-      }
-
-      callbackContext.success();
-    } catch (Exception e) {
-      callbackContext.error("Failed to set flash mode");
-    }
-  }
-
-  private void setCameraPosition(JSONArray args, CallbackContext callbackContext) {
-    try {
-      String cameraPosition = args.getString(0);
-
-      if (cameraPosition.equals("front")) {
-        mLensOrientation = Camera.CameraInfo.CAMERA_FACING_FRONT;
-      } else {
-        mLensOrientation = Camera.CameraInfo.CAMERA_FACING_BACK;
-      }
-
-      if (mCamera != null) {
-        stopCamera();
-        initPreviewSurface();
-        callbackContext.success();
-      } else {
-        callbackContext.error("Failed to switch camera");
-      }
-    } catch (Exception e) {
-      callbackContext.error("Failed to switch camera");
-    }
-  }
-
-  private void initPreviewSurface() {
-    mTextureView = new TextureView(mActivity);
-    mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-    addViewToLayout(mTextureView);
-  }
-
-  private final TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
-    public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-      mCamera = getCameraInstance();
-
-      try {
-        setPreviewParameters(mCamera);
-
-        mCamera.setPreviewTexture(surface);
-        mCamera.setErrorCallback(mCameraErrorCallback);
-        mCamera.setPreviewCallback(mCameraPreviewCallback);
-
-        setCurrentOrientation();
-        mCamera.startPreview();
-      } catch (Exception e) {
-        Log.e(TAG, "Failed to init preview: " + e.getLocalizedMessage());
-      }
-
-      mTextureView.setVisibility(View.INVISIBLE);
-      mTextureView.setAlpha(0);
-    }
-
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-      // Ignored, Camera does all the work for us
-    }
-
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-      stopCamera();
-      return true;
-    }
-
-    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-      // Invoked every time there's a new Camera preview frame
-    }
-  };
-
-  private final Camera.PreviewCallback mCameraPreviewCallback = new Camera.PreviewCallback() {
-    @Override
-    public void onPreviewFrame(final byte[] data, Camera camera) {
-
-      new Thread(new Runnable() {
-        public void run() {
-          JSONObject imageFiles = new JSONObject();
-
-          byte[] dataFull;
-          dataFull = convertImageToJpeg(data, mPreviewWidth, mPreviewHeight);
-          dataFull = rotateImage(dataFull, mOrientation, mPreviewWidth, mPreviewHeight);
-
-          File file = getImageFile("f");
-          saveImage(dataFull, file);
-          try {
-            imageFiles.accumulate("fullsize", file.getPath());
-          } catch (JSONException e) {
-            Log.e(TAG, "Cannot add fullsize " + e.getMessage());
-          }
-
-          if (mHasThumbnail) {
-            byte[] dataThumb = resizeImage(dataFull);
-            file = getImageFile("t");
-            saveImage(dataThumb, file);
-            try {
-              imageFiles.accumulate("thumbnail", file.getPath());
-            } catch (JSONException e) {
-              Log.e(TAG, "Cannot add thumbnail " + e.getMessage());
+    private final Camera.ErrorCallback mCameraErrorCallback = new Camera.ErrorCallback() {
+        @Override
+        public void onError(int error, Camera camera) {
+            switch (error) {
+                case Camera.CAMERA_ERROR_EVICTED:
+                    if (LOGGING)
+                        Log.e(TAG, "Camera was disconnected due to use by higher priority user. (error code - " + error + ")");
+                    break;
+                case Camera.CAMERA_ERROR_UNKNOWN:
+                    if (LOGGING)
+                        Log.e(TAG, "Unspecified camera error. (error code - " + error + ")");
+                    break;
+                case Camera.CAMERA_ERROR_SERVER_DIED:
+                    if (LOGGING)
+                        Log.e(TAG, "Media server died. In this case, the application must release the Camera object and instantiate a new one. (error code - " + error + ")");
+                    break;
+                default:
+                    if (LOGGING) Log.e(TAG, "Camera error callback : (error code - " + error + ")");
+                    break;
             }
-          }
 
-          PluginResult result = new PluginResult(PluginResult.Status.OK, imageFiles);
-          result.setKeepCallback(true);
-          mCallbackContext.sendPluginResult(result);
+            try {
+                if (startCamera()) {
+                    if (LOGGING) Log.i(TAG, "Camera successfully restarted.");
+                } else {
+                    if (LOGGING) Log.w(TAG, "Could not restart camera.");
+                }
+            } catch (Exception e) {
+                if (LOGGING)
+                    Log.e(TAG, "Something happened while stopping camera : " + e.getMessage());
+            }
         }
-      }).start();
-    }
-  };
+    };
 
-  private final Camera.ErrorCallback mCameraErrorCallback = new Camera.ErrorCallback() {
+    private final Camera.PreviewCallback mCameraPreviewCallback = new Camera.PreviewCallback() {
+        @Override
+        public void onPreviewFrame(final byte[] data, Camera camera) {
+            Runnable renderFrame = new Runnable() {
+                public void run() {
+                    if (mPreviewing) {
+                        // Get display orientation.
+                        int displayOrientation = getDisplayOrientation();
+
+                        // Getting output file paths.
+                        Map<String, File> files = getImageFilesPaths();
+
+                        // JSON output for images.
+                        JSONObject images = new JSONObject();
+
+                        // Creating fullsize image.
+                        byte[] fullsizeData = dataToJpeg(data, mPreviewSize.width, mPreviewSize.height);
+
+                        fullsizeData = getResizedAndRotatedImage(fullsizeData, mCanvasWidth, mCanvasHeight, displayOrientation);
+
+                        if (saveImage(fullsizeData, files.get("fullsize"))) {
+                            String fullsizeDataToB64 = "data:image/jpeg;base64," + Base64.encodeToString(fullsizeData, Base64.DEFAULT);
+
+                            // JSON output for fullsize image
+                            JSONObject fullsize = new JSONObject();
+                            try {
+                                images.put("fullsize", fullsize);
+
+                                try {
+                                    fullsize.put("tracking", tracking);
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.tracking into JSON result : " + e.getMessage());
+                                }
+
+
+                                try {
+                                    fullsize.put("rotation", displayOrientation);
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.rotation into JSON result : " + e.getMessage());
+                                }
+
+                                try {
+                                    fullsize.put("orientation", getCurrentOrientationToString());
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.orientation into JSON result : " + e.getMessage());
+                                }
+
+                                try {
+                                    fullsize.put("file", files.get("fullsize").getPath());
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.path into JSON result : " + e.getMessage());
+                                }
+
+                                try {
+                                    fullsize.put("data", fullsizeDataToB64);
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.data  into JSON result : " + e.getMessage());
+                                }
+
+                            } catch (JSONException e) {
+                                if (LOGGING)
+                                    Log.e(TAG, "Cannot put data.output.images.fullsize into JSON result : " + e.getMessage());
+                            }
+
+                            if (mHasThumbnail) {
+                                // Creating thumbnail image
+                                byte[] thumbnailData = getResizedImage(fullsizeData, mThumbnailRatio);
+                                if (saveImage(thumbnailData, files.get("thumbnail"))) {
+                                    String thumbnailDataToB64 = "data:image/jpeg;base64," + Base64.encodeToString(thumbnailData, Base64.DEFAULT);
+                                    // JSON output for thumbnail image
+                                    JSONObject thumbnail = new JSONObject();
+
+                                    try {
+                                        images.put("thumbnail", thumbnail);
+
+                                        try {
+                                            thumbnail.put("rotation", displayOrientation);
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.rotation into JSON result : " + e.getMessage());
+                                        }
+
+                                        try {
+                                            thumbnail.put("orientation", getCurrentOrientationToString());
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.orientation into JSON result : " + e.getMessage());
+                                        }
+
+                                        try {
+                                            thumbnail.put("file", files.get("thumbnail").getPath());
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.path into JSON result : " + e.getMessage());
+                                        }
+
+                                        try {
+                                            thumbnail.put("data", thumbnailDataToB64);
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.data into JSON result : " + e.getMessage());
+                                        }
+
+                                    } catch (JSONException e) {
+                                        if (LOGGING)
+                                            Log.e(TAG, "Cannot put data.output.images.thumbnail into JSON result : " + e.getMessage());
+                                    }
+                                }
+                            }
+
+                            // JSON output
+                            JSONObject output = new JSONObject();
+
+                            try {
+                                output.put("images", images);
+                            } catch (JSONException e) {
+                                if (LOGGING)
+                                    Log.e(TAG, "Cannot put data.output.images into JSON result : " + e.getMessage());
+                            }
+
+                            if (mPreviewing) {
+                                PluginResult result = new PluginResult(PluginResult.Status.OK, getPluginResultMessage("OK", output));
+                                result.setKeepCallback(true);
+                                mStartCaptureCallbackContext.sendPluginResult(result);
+                            }
+                        }
+                    }
+                }
+            };
+
+            cordova.getThreadPool().submit(renderFrame);
+        }
+    };
+
     @Override
-    public void onError(int error, Camera camera) {
-      Log.e(TAG, "on camera error: " + error);
-
-      try {
-        stopCamera();
-        initPreviewSurface();
-      } catch (Exception e) {
-        Log.e(TAG, "something happened while stopping camera: " + e.getMessage());
-      }
-    }
-  };
-
-  private void setCurrentOrientation() {
-    mOrientation = getDisplayOrientation();
-  }
-
-  private int getDisplayOrientation() {
-    int result = 0;
-    if (mCamera != null) {
-      Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-      Camera.getCameraInfo(mCameraId, cameraInfo);
-      int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
-
-      int degrees = 0;
-      switch (rotation) {
-        case Surface.ROTATION_0:
-          degrees = 0;
-          break;
-        case Surface.ROTATION_90:
-          degrees = 90;
-          break;
-        case Surface.ROTATION_180:
-          degrees = 180;
-          break;
-        case Surface.ROTATION_270:
-          degrees = 270;
-          break;
-      }
-
-      if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-        result = (cameraInfo.orientation + degrees) % 360;
-        result = (360 - result) % 360;  // compensate the mirror
-      } else {  // back-facing
-        result = (cameraInfo.orientation - degrees + 360) % 360;
-      }
-    }
-    return result;
-  }
-
-  private void setPreviewParameters(Camera camera) {
-    Camera.Parameters params = camera.getParameters();
-
-    Camera.Size previewSize = getOptimalPictureSize(params);
-    mPreviewWidth = previewSize.width;
-    mPreviewHeight = previewSize.height;
-    params.setPreviewSize(mPreviewWidth, mPreviewHeight);
-
-    int[] frameRate = getOptimalFrameRate(params);
-    mFps = frameRate[0];
-    params.setPreviewFpsRange(frameRate[0], frameRate[0]);
-
-    String focusMode = getOptimalFocusMode(params);
-    params.setFocusMode(focusMode);
-
-    camera.setParameters(params);
-
-    mPreviewFormat = params.getPreviewFormat();
-  }
-
-
-  private int[] getOptimalFrameRate(Camera.Parameters params) {
-    List<int[]> supportedRanges = params.getSupportedPreviewFpsRange();
-
-    int[] optimalFpsRange = new int[]{30, 30};
-
-    for (int[] range : supportedRanges) {
-      optimalFpsRange = range;
-      if (range[0] >= (mFps * 1000)) {
-        break;
-      }
-    }
-    return optimalFpsRange;
-  }
-
-  private String getOptimalFocusMode(Camera.Parameters params) {
-    String result;
-    List<String> focusModes = params.getSupportedFocusModes();
-
-    if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
-      result = Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO;
-    } else if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
-      result = Camera.Parameters.FOCUS_MODE_AUTO;
-    } else {
-      result = params.getSupportedFocusModes().get(0);
+    public void initialize(CordovaInterface cordova, CordovaWebView webView) {
+        mActivity = cordova.getActivity();
+        super.initialize(cordova, webView);
+        deleteCachedImageFiles();
     }
 
-    return result;
-  }
-
-  private Camera.Size getOptimalPictureSize(Camera.Parameters params) {
-    Camera.Size bigEnough = params.getSupportedPictureSizes().get(0);
-
-    for (Camera.Size size : params.getSupportedPictureSizes()) {
-      if (size.width >= mWidth &&
-          size.height >= mHeight &&
-          size.width < bigEnough.width &&
-          size.height < bigEnough.height
-        ) {
-        bigEnough = size;
-      }
+    @Override
+    public void onStart() {
+        super.onStart();
+        mOrientation = getCurrentOrientation();
     }
 
-    return bigEnough;
-  }
-
-  private boolean checkCameraHardware(Context context) {
-    return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
-  }
-
-  private Camera getCameraInstance() {
-    Camera camera = null;
-
-    try {
-      Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-      int cameraCount = Camera.getNumberOfCameras();
-      int cameraId;
-
-      for (cameraId = 0; cameraId < cameraCount; cameraId++) {
-        Camera.getCameraInfo(cameraId, cameraInfo);
-        if (cameraInfo.facing == mLensOrientation) {
-          Log.d(TAG, "Trying to open camera : " + cameraId);
-          try {
-            mCameraId = cameraId;
-            camera = Camera.open(cameraId);
-            break;
-          } catch (RuntimeException e) {
-            Log.e(TAG, "Unable to open camera : " + e.getMessage());
-          }
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mCamera != null) {
+            stopCamera();
         }
-      }
-    } catch (Exception e) {
-      Log.e(TAG, "No available camera : " + e.getMessage());
+        mPreviewing = false;
     }
 
-    return camera;
-  }
-
-  private void stopCamera() {
-    if (mCamera != null) {
-      mCamera.stopPreview();
-      mCamera.setPreviewCallback(null);
-      mCamera.release();
-      mCamera = null;
-      mCameraId = 0;
-    }
-  }
-
-  private void addViewToLayout(View view) {
-    WindowManager mW = (WindowManager) mActivity.getSystemService(Context.WINDOW_SERVICE);
-    int screenWidth = mW.getDefaultDisplay().getWidth();
-    int screenHeight = mW.getDefaultDisplay().getHeight();
-
-    mActivity.addContentView(view, new ViewGroup.LayoutParams(screenWidth, screenHeight));
-  }
-
-  private File getImageFile(String prefix) {
-    File dir = mActivity.getExternalFilesDir(null);
-
-    mFileId++;
-    boolean deleted;
-    if (mFileId > 10) {
-      File prevFile = new File(dir, prefix + (mFileId - 10) + ".jpg");
-      deleted = prevFile.delete();
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        cordova.getThreadPool().shutdownNow();
+        deleteCachedImageFiles();
     }
 
-    return new File(dir, prefix + mFileId + ".jpg");
-  }
+    @Override
+    public void onPause(boolean multitasking) {
+        super.onPause(multitasking);
+    }
 
-  private void saveImage(byte[] bytes, File file) {
-    FileOutputStream output = null;
-    try {
-      output = new FileOutputStream(file);
-      output.write(bytes);
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
-      e.printStackTrace();
-    } finally {
-      if (null != output) {
+    @Override
+    public void onResume(boolean multitasking) {
+        super.onResume(multitasking);
+        if (mPreviewing) {
+            startCamera();
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (mPreviewing) {
+            if (newConfig.orientation != mOrientation) {
+                setCameraOrientation(newConfig.orientation);
+            }
+        }
+    }
+
+    private void setCameraOrientation(int orientation) {
+        mOrientation = orientation;
+        if (LOGGING) Log.i(TAG, "Orientation changed.");
+        if (startCamera()) {
+            if (LOGGING) Log.i(TAG, "Camera successfully restarted.");
+        } else {
+            if (LOGGING) Log.w(TAG, "Could not restart camera.");
+        }
+    }
+
+    @Override
+    public boolean execute(String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException {
+        mArgs = args;
+        mCurrentCallbackContext = callbackContext;
+
+        if (PermissionHelper.hasPermission(this, Manifest.permission.CAMERA) &&
+                PermissionHelper.hasPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) &&
+                PermissionHelper.hasPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            if ("startCapture".equals(action)) {
+                if (LOGGING) Log.i(TAG, "Starting async startCapture thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        startCapture(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                return true;
+            } else if ("stopCapture".equals(action)) {
+                if (LOGGING) Log.i(TAG, "Starting async stopCapture thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        stopCapture(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                return true;
+            } else if ("flashMode".equals(action)) {
+                if (LOGGING) Log.i(TAG, "Starting async flashMode thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        flashMode(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                return true;
+            } else if ("cameraPosition".equals(action)) {
+                if (LOGGING) Log.i(TAG, "Starting async cameraPosition thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        cameraPosition(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                return true;
+            }
+        } else {
+            if ("startCapture".equals(action)) {
+                deferPluginResultCallback(mCurrentCallbackContext);
+                PermissionHelper.requestPermissions(this, SEC_START_CAPTURE, PERMISSIONS);
+                return true;
+            } else if ("stopCapture".equals(action)) {
+                deferPluginResultCallback(mCurrentCallbackContext);
+                PermissionHelper.requestPermission(this, SEC_STOP_CAPTURE, Manifest.permission.CAMERA);
+                return true;
+            } else if ("flashMode".equals(action)) {
+                deferPluginResultCallback(mCurrentCallbackContext);
+                PermissionHelper.requestPermission(this, SEC_FLASH_MODE, Manifest.permission.CAMERA);
+                return true;
+            } else if ("cameraPosition".equals(action)) {
+                deferPluginResultCallback(mCurrentCallbackContext);
+                PermissionHelper.requestPermission(this, SEC_CAMERA_POSITION, Manifest.permission.CAMERA);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void deferPluginResultCallback(final CallbackContext callbackContext) {
+        PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
+        pluginResult.setKeepCallback(true);
+        callbackContext.sendPluginResult(pluginResult);
+    }
+
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
+        for (int r : grantResults) {
+            if (r == PackageManager.PERMISSION_DENIED) {
+                if (LOGGING) Log.w(TAG, "Permission Denied !");
+                mCurrentCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ILLEGAL_ACCESS_EXCEPTION, getPluginResultMessage("Permission Denied !")));
+                return;
+            }
+        }
+
+        if (LOGGING) Log.i(TAG, "Permission granted !");
+
+        switch (requestCode) {
+            case SEC_START_CAPTURE:
+                if (LOGGING) Log.i(TAG, "Starting async startCapture thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        startCapture(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                break;
+            case SEC_STOP_CAPTURE:
+                if (LOGGING) Log.i(TAG, "Starting async stopCapture thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        stopCapture(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                break;
+            case SEC_FLASH_MODE:
+                if (LOGGING) Log.i(TAG, "Starting async flashMode thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        flashMode(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                break;
+            case SEC_CAMERA_POSITION:
+                if (LOGGING) Log.i(TAG, "Starting async cameraPosition thread...");
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        cameraPosition(mArgs, mCurrentCallbackContext);
+                    }
+                });
+                break;
+        }
+    }
+
+    private synchronized void startCapture(CallbackContext callbackContext) {
+        mStartCaptureCallbackContext = callbackContext;
+
+        if (startCamera()) {
+            deferPluginResultCallback(mStartCaptureCallbackContext);
+            if (LOGGING) Log.i(TAG, "Capture started !");
+        } else {
+            mStartCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Unable to start capture.")));
+        }
+    }
+
+    private synchronized void startCapture(JSONArray args, CallbackContext callbackContext) {
+
+        mStartCaptureCallbackContext = callbackContext;
+
+        // init parameters - default values
+        setDefaultOptions();
+
+        // parse options
         try {
-          output.close();
-        } catch (IOException e) {
-          e.printStackTrace();
+            parseOptions(args.getJSONObject(0));
+        } catch (Exception e) {
+            if (LOGGING) Log.e(TAG, "Options parsing error : " + e.getMessage());
+            mStartCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
+            return;
         }
-      }
-    }
-  }
 
-  private byte[] convertImageToJpeg(byte[] data, int width, int height) {
-    YuvImage yuvImage = new YuvImage(data, mPreviewFormat, width, height, null);
-    Rect rect = new Rect(0, 0, width, height);
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-    yuvImage.compressToJpeg(rect, 80, outputStream);
-    return outputStream.toByteArray();
-  }
-
-  private byte[] rotateImage(byte[] data, int angle, int width, int height) {
-    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-    ByteArrayOutputStream rotatedStream = new ByteArrayOutputStream();
-
-    //Log.d(TAG, "Rotating output image by " + angle + "deg");
-    final Matrix matrix = new Matrix();
-
-    if (mLensOrientation == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-      //Log.d(TAG, "Mirror y axis");
-      matrix.preScale(-1.0f, 1.0f);
+        startCapture(mStartCaptureCallbackContext);
     }
 
-    matrix.postRotate(angle);
+    private synchronized void stopCapture(JSONArray args, CallbackContext callbackContext) {
+        mStopCaptureCallbackContext = callbackContext;
 
-    bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
-
-    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, rotatedStream);
-    return rotatedStream.toByteArray();
-  }
-
-  private byte[] resizeImage(byte[] data) {
-    Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
-    int targetWidth = (int)(bitmap.getWidth() * mThumbnailRatio);
-    int targetHeight = (int)(bitmap.getHeight() * mThumbnailRatio);
-
-    if (targetWidth > 0 && targetHeight > 0) {
-        bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
-        ByteArrayOutputStream resizedStream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, resizedStream);
-        return resizedStream.toByteArray();
-    } else {
-        return data;
-    }
-  }
-
-  private void getOptions(JSONObject jsonData) throws Exception {
-    if (jsonData == null) {
-      return;
+        try {
+            stopCamera();
+            if (LOGGING) Log.i(TAG, "Capture stopped.");
+            mStopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, getPluginResultMessage("Capture stopped.")));
+        } catch (Exception e) {
+            if (LOGGING) Log.e(TAG, "Could not stop capture : " + e.getMessage());
+            mStopCaptureCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.IO_EXCEPTION, getPluginResultMessage(e.getMessage())));
+        }
     }
 
-    // lens orientation
-    if (jsonData.has(kLensOrientationKey)) {
-      String orientation = jsonData.getString(kLensOrientationKey);
-      if (orientation.equals("front")) {
-        mLensOrientation = Camera.CameraInfo.CAMERA_FACING_FRONT;
-      } else {
-        mLensOrientation = Camera.CameraInfo.CAMERA_FACING_BACK;
-      }
+    private synchronized void flashMode(JSONArray args, CallbackContext callbackContext) {
+        mFlashModeCallbackContext = callbackContext;
+
+        if (mCamera != null) {
+            boolean isFlashModeOn;
+
+            try {
+                isFlashModeOn = args.getBoolean(0);
+            } catch (Exception e) {
+                if (LOGGING) Log.e(TAG, "Failed to set flash mode : " + e.getMessage());
+                mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
+                return;
+            }
+
+            mFlashMode = getFlashMode(isFlashModeOn);
+
+            if (startCamera()) {
+                if (mStartCaptureCallbackContext != null) {
+                    if (LOGGING) Log.i(TAG, "Flash mode applied !");
+                    mFlashModeCallbackContext.success(getPluginResultMessage("OK"));
+                } else {
+                    if (LOGGING)
+                        Log.w(TAG, "Could not set flash mode. No capture callback available !");
+                    mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No capture callback available !")));
+                }
+            } else {
+                if (LOGGING) Log.w(TAG, "Could not set flash mode. Could not start camera !");
+                mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. Could not start camera !")));
+            }
+        } else {
+            if (LOGGING) Log.w(TAG, "Could not set flash mode. No camera available !");
+            mFlashModeCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not set flash mode. No camera available !")));
+        }
     }
 
-    // fps
-    if (jsonData.has(kFpsKey)) {
-      mFps = jsonData.getInt(kFpsKey);
+    private synchronized void cameraPosition(JSONArray args, CallbackContext callbackContext) {
+        mCameraPositionCallbackContext = callbackContext;
+
+        if (mCamera != null) {
+            String cameraPosition;
+
+            try {
+                cameraPosition = args.getString(0);
+            } catch (Exception e) {
+                if (LOGGING) Log.e(TAG, "Failed to switch camera : " + e.getMessage());
+                mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.JSON_EXCEPTION, getPluginResultMessage(e.getMessage())));
+                return;
+            }
+
+            mCameraFacing = getCameraFacing(cameraPosition);
+
+            if (startCamera()) {
+                if (mStartCaptureCallbackContext != null) {
+                    if (LOGGING) Log.i(TAG, "Camera switched !");
+                    mCameraPositionCallbackContext.success(getPluginResultMessage("OK"));
+                } else {
+                    if (LOGGING)
+                        Log.w(TAG, "Could not switch camera. No capture callback available !");
+                    mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No capture callback available !")));
+                }
+            } else {
+                if (LOGGING) Log.w(TAG, "Could not switch camera. Could not start camera !");
+                mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. Could not start camera !")));
+            }
+        } else {
+            if (LOGGING) Log.w(TAG, "Could not switch camera. No camera available !");
+            mCameraPositionCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.INVALID_ACTION, getPluginResultMessage("Could not switch camera. No camera available !")));
+        }
     }
 
-    // width
-    if (jsonData.has(kWidthKey)) {
-      mWidth = jsonData.getInt(kWidthKey);
+    private void setDefaultOptions() {
+        mFps = 30;
+        mWidth = 352;
+        mHeight = 288;
+        mCanvasWidth = 352;
+        mCanvasHeight = 288;
+        mCaptureWidth = 352;
+        mCaptureHeight = 288;
+        mHasThumbnail = false;
+        mThumbnailRatio = 1 / 6;
+        mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK;
     }
 
-    // height
-    if (jsonData.has(kHeightKey)) {
-      mHeight = jsonData.getInt(kHeightKey);
+    private boolean startCamera() {
+        stopCamera();
+        if (checkCameraHardware(mActivity)) {
+
+            mCamera = getCameraInstance();
+
+            if (mCamera != null) {
+
+                try {
+                    setPreviewParameters();
+
+                    mCamera.setDisplayOrientation(mDisplayOrientation);
+                    mCamera.setErrorCallback(mCameraErrorCallback);
+                    mCamera.setPreviewCallback(mCameraPreviewCallback);
+
+                    mFileId = 0;
+
+                    mCamera.startPreview();
+                    mPreviewing = true;
+                    if (LOGGING) Log.i(TAG, "Camera [" + mCameraId + "] started.");
+                    return true;
+                } catch (Exception e) {
+                    mPreviewing = false;
+                    if (LOGGING) Log.e(TAG, "Failed to init preview: " + e.getMessage());
+                    stopCamera();
+                    return false;
+                }
+            } else {
+                mPreviewing = false;
+                if (LOGGING) Log.w(TAG, "Could not get camera instance.");
+                return false;
+            }
+        } else {
+            mPreviewing = false;
+            if (LOGGING) Log.w(TAG, "No camera detected !");
+            return false;
+        }
     }
 
-    // hasThumbnail
-    if (jsonData.has(kHasThumbnailKey)) {
-      mHasThumbnail = jsonData.getBoolean(kHasThumbnailKey);
+    private void stopCamera() {
+        if (mCamera != null) {
+            try {
+                mCamera.stopPreview();
+                mCamera.setPreviewCallback(null);
+                mCamera.release();
+                mCamera = null;
+                if (LOGGING) Log.i(TAG, "Camera [" + mCameraId + "] stopped.");
+                mCameraId = 0;
+            } catch (Exception e) {
+                if (LOGGING)
+                    Log.e(TAG, "Could not stop camera [" + mCameraId + "] : " + e.getMessage());
+            }
+        }
+        mPreviewing = false;
     }
 
-    // thumbnailRatio
-    if (jsonData.has(kThumbnailRatioKey)) {
-       mThumbnailRatio = jsonData.getDouble(kThumbnailRatioKey);
+    private int getCameraRotation() {
+        int degrees = getDisplayRotation();
+
+        Camera.CameraInfo info = new Camera.CameraInfo();
+        Camera.getCameraInfo(mCameraId, info);
+        int cameraRotationOffset = info.orientation;
+
+        int cameraRotation;
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            cameraRotation = (360 + cameraRotationOffset + degrees) % 360;
+        } else {
+            cameraRotation = (360 + cameraRotationOffset - degrees) % 360;
+        }
+
+        return cameraRotation;
     }
 
-  }
+    private int getDisplayOrientation() {
+        int degrees = getDisplayRotation();
 
+        Camera.CameraInfo info = new Camera.CameraInfo();
+        Camera.getCameraInfo(mCameraId, info);
+        int cameraRotationOffset = info.orientation;
+
+        int displayOrientation;
+        if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            displayOrientation = (cameraRotationOffset + degrees) % 360;
+            displayOrientation = (360 - displayOrientation) % 360;  // compensate the mirror
+        } else {  // back-facing
+            displayOrientation = (cameraRotationOffset - degrees + 360) % 360;
+        }
+
+        return displayOrientation;
+    }
+
+    private int getDisplayRotation() {
+        int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+
+        int degrees = 0;
+        switch (rotation) {
+            case Surface.ROTATION_0:
+                degrees = 0;
+                break; // Natural orientation.
+            case Surface.ROTATION_90:
+                degrees = 90;
+                break; // Landscape left.
+            case Surface.ROTATION_180:
+                degrees = 180;
+                break; // Upside down.
+            case Surface.ROTATION_270:
+                degrees = 270;
+                break; // Landscape right.
+        }
+
+        return degrees;
+    }
+
+    private void setPreviewParameters() {
+        if (mCamera != null) {
+            // set display orientation
+            mDisplayOrientation = getDisplayOrientation();
+            Camera.Parameters parameters = mCamera.getParameters();
+            // sets optimal preview size.
+            mPreviewSize = getOptimalPreviewSize(parameters);
+            if (mPreviewSize != null) {
+                parameters.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+                if (LOGGING)
+                    Log.i(TAG, "Preview size is set to w : " + mPreviewSize.width + ", h : " + mPreviewSize.height + ".");
+            }
+            // sets camera rotation
+            mCameraRotation = getCameraRotation();
+            parameters.setRotation(mCameraRotation);
+            // sets optimal preview fps range.
+            mPreviewFpsRange = getOptimalFrameRate(parameters);
+            if (mPreviewFpsRange != null) {
+                parameters.setPreviewFpsRange(mPreviewFpsRange[0], mPreviewFpsRange[1]);
+                if (LOGGING)
+                    Log.i(TAG, "Preview fps range is set to min : " + (mPreviewFpsRange[0] / 1000) + ", max : " + (mPreviewFpsRange[1] / 1000) + ".");
+            }
+            // sets optimal preview focus mode.
+            mPreviewFocusMode = getOptimalFocusMode(parameters);
+            if (mPreviewFocusMode != null) {
+                parameters.setFocusMode(mPreviewFocusMode);
+                if (LOGGING)
+                    Log.i(TAG, "Preview focus mode is set to : " + mPreviewFocusMode + ".");
+            }
+            // sets flash mode
+            mFlashMode = getOptimalFlashMode(parameters);
+            if (mFlashMode != null) {
+                parameters.setFlashMode(mFlashMode);
+                if (LOGGING) Log.i(TAG, "Preview flash mode is set to : " + mFlashMode + ".");
+            }
+            // sets camera parameters
+            mCamera.setParameters(parameters);
+            // gets preview pixel format
+            mPreviewFormat = parameters.getPreviewFormat();
+        }
+    }
+
+
+    private int[] getOptimalFrameRate(Camera.Parameters params) {
+        List<int[]> supportedRanges = params.getSupportedPreviewFpsRange();
+
+        int[] optimalFpsRange = new int[]{30, 30};
+
+        for (int[] range : supportedRanges) {
+            optimalFpsRange = range;
+            if (range[1] <= (mFps * 1000)) {
+                break;
+            }
+        }
+
+        return optimalFpsRange;
+    }
+
+    private String getOptimalFocusMode(Camera.Parameters params) {
+        List<String> focusModes = params.getSupportedFocusModes();
+
+        String result;
+
+        if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
+            result = Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO;
+        } else if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
+            result = Camera.Parameters.FOCUS_MODE_AUTO;
+        } else {
+            result = params.getSupportedFocusModes().get(0);
+        }
+
+        return result;
+    }
+
+    private String getOptimalFlashMode(Camera.Parameters parameters) {
+        if (mFlashMode != null) {
+            List<String> supportedFlashModes = parameters.getSupportedFlashModes();
+            if (supportedFlashModes != null) {
+                for (String str : supportedFlashModes) {
+                    if (str.trim().contains(mFlashMode))
+                        return mFlashMode;
+                }
+                return null;
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    private Camera.Size getOptimalPreviewSize(Camera.Parameters parameters) {
+        List<Camera.Size> sizes = parameters.getSupportedPreviewSizes();
+        final double ASPECT_TOLERANCE = 0.1;
+        double targetRatio = (double) mCaptureWidth / mCaptureHeight;
+        if (sizes == null) return null;
+
+        Camera.Size optimalSize = null;
+        double minDiff = Double.MAX_VALUE;
+
+        int targetHeight = mCaptureHeight;
+
+        // Try to find an size match aspect ratio and size
+        for (Camera.Size size : sizes) {
+            double ratio = (double) size.width / size.height;
+            if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) continue;
+            if (Math.abs(size.height - targetHeight) < minDiff) {
+                optimalSize = size;
+                minDiff = Math.abs(size.height - targetHeight);
+            }
+        }
+
+        // Cannot find the one match the aspect ratio, ignore the requirement
+        if (optimalSize == null) {
+            minDiff = Double.MAX_VALUE;
+            for (Camera.Size size : sizes) {
+                if (Math.abs(size.height - targetHeight) < minDiff) {
+                    optimalSize = size;
+                    minDiff = Math.abs(size.height - targetHeight);
+                }
+            }
+        }
+        return optimalSize;
+    }
+
+    private boolean checkCameraHardware(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
+    }
+
+    private Camera getCameraInstance() {
+        Camera camera = null;
+
+        try {
+            int cameraId;
+            int cameraCount = Camera.getNumberOfCameras();
+            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+
+            for (cameraId = 0; cameraId < cameraCount; cameraId++) {
+                Camera.getCameraInfo(cameraId, cameraInfo);
+                if (cameraInfo.facing == mCameraFacing) {
+                    if (LOGGING) Log.i(TAG, "Trying to open camera : " + cameraId);
+                    try {
+                        mCameraId = cameraId;
+                        //camera = Camera.open(cameraId);
+
+                        if (mThread == null) {
+                            mThread = new CameraHandlerThread();
+                        }
+
+                        synchronized (mThread) {
+                            camera = mThread.openCamera(cameraId);
+                        }
+
+                        if (LOGGING) Log.i(TAG, "Camera [" + cameraId + "] opened.");
+                        break;
+                    } catch (RuntimeException e) {
+                        if (LOGGING) Log.e(TAG, "Unable to open camera : " + e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            if (LOGGING) Log.e(TAG, "No available camera : " + e.getMessage());
+        }
+
+        return camera;
+    }
+
+    private CameraHandlerThread mThread = null;
+
+    private static class CameraHandlerThread extends HandlerThread {
+        Handler mHandler = null;
+        private Camera mCamera = null;
+
+        CameraHandlerThread() {
+            super("CameraHandlerThread");
+            start();
+            mHandler = new Handler(getLooper());
+        }
+
+        synchronized void cameraOpened() {
+            notify();
+        }
+
+        public Camera openCamera(final int cameraId) {
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        mCamera = Camera.open(cameraId);
+                        if (LOGGING) Log.i(TAG, "Camera [" + cameraId + "] opened.");
+                    } catch (RuntimeException e) {
+                        if (LOGGING) Log.e(TAG, "Unable to open camera : " + e.getMessage());
+                    }
+                    cameraOpened();
+                }
+            });
+
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                if (LOGGING)
+                    Log.w(TAG, "Camera opening thread wait was interrupted : " + e.getMessage());
+            }
+
+            return mCamera;
+        }
+    }
+
+    private synchronized Map<String, File> getImageFilesPaths() {
+        File dir = mActivity.getExternalFilesDir(null);
+        Map<String, File> files = new HashMap<String, File>();
+
+        mFileId++;
+
+        for (String fileName : FILENAMES) {
+            if (mFileId > mFps) {
+                File prevFile = new File(dir, String.valueOf(fileName.charAt(0)) + (mFileId - mFps) + "-canvascamera.jpg");
+                if (prevFile.exists()) {
+                    if(prevFile.delete()) {
+                        if (LOGGING) Log.v(TAG, "Previously cached file " + prevFile.getName() + " deleted !");
+                    } else {
+                        if (LOGGING) Log.w(TAG, "Could not delete previous cached file " + prevFile.getName() + ".");
+                    }
+                }
+            }
+
+            File curFile = new File(dir, String.valueOf(fileName.charAt(0)) + mFileId + "-canvascamera.jpg");
+            if (curFile.exists()) {
+                if(curFile.delete()) {
+                    if (LOGGING) Log.v(TAG, "Current cached file " + curFile.getName() + " deleted !");
+                } else {
+                    if (LOGGING) Log.w(TAG, "Could not delete current cached file " + curFile.getName() + ".");
+                }
+            }
+
+            files.put(fileName, curFile);
+        }
+
+        return files;
+    }
+
+    private void deleteCachedImageFiles() {
+        if (mActivity != null) {
+            if (LOGGING) Log.v(TAG, "Deleting cached files...");
+            File dir = mActivity.getExternalFilesDir(null);
+
+            File[] filesList = dir.listFiles();
+            for (int i = 0; i < filesList.length; i++) {
+                if (filesList[i].isFile()) {
+                    String fileName = filesList[i].getName();
+                    int found = fileName.lastIndexOf("-canvascamera.jpg");
+                    if (found > 0) {
+                        if (filesList[i].delete()) {
+                            if (LOGGING) Log.v(TAG, "Cached file " + fileName + " deleted !");
+                        } else {
+                            if (LOGGING) Log.w(TAG, "Could not delete cached file " + fileName + ".");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean saveImage(byte[] bytes, File file) {
+        FileOutputStream output = null;
+        try {
+            output = new FileOutputStream(file);
+            output.write(bytes);
+        } catch (FileNotFoundException e) {
+            if (LOGGING) Log.e(TAG, "Could not find output file : " + e.getMessage());
+            return false;
+        } catch (IOException e) {
+            e.printStackTrace();
+            if (LOGGING) Log.e(TAG, "Could not write output file : " + e.getMessage());
+            return false;
+        } finally {
+            if (null != output) {
+                try {
+                    output.close();
+                } catch (IOException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Could not close file output stream : " + e.getMessage());
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    private byte[] dataToJpeg(byte[] data, int width, int height) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        // The second parameter is the actual image format
+        YuvImage yuvImage = new YuvImage(data, mPreviewFormat, width, height, null);
+        // width and height define the size of the bitmap filled with the preview image
+        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, out);
+        // returns the jpeg as byte array
+        return out.toByteArray();
+    }
+
+    private byte[] getResizedAndRotatedImage(byte[] unScaledByteArray, int targetWidth, int targetHeight, int angle) {
+        if (angle != 0) {
+            Bitmap unScaledBitmap = BitmapFactory.decodeByteArray(unScaledByteArray, 0, unScaledByteArray.length);
+
+            int[] widthHeight = calculateAspectRatio(unScaledBitmap.getWidth(), unScaledBitmap.getHeight(), targetHeight, targetWidth);
+
+            targetWidth = widthHeight[0];
+            targetHeight = widthHeight[1];
+
+            Bitmap scaledBitmap = Bitmap.createScaledBitmap(unScaledBitmap, targetWidth, targetHeight, true);
+
+            return getRotatedImage(scaledBitmap, angle);
+        } else {
+            return getResizedImage(unScaledByteArray, targetWidth, targetHeight);
+        }
+    }
+
+    private byte[] getRotatedImage(Bitmap unRotatedBitmap, int angle) {
+        final Matrix matrix = new Matrix();
+
+        if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            matrix.preScale(-1.0f, 1.0f);
+        }
+
+        matrix.postRotate(angle);
+
+        Bitmap rotatedBitmap = Bitmap.createBitmap(unRotatedBitmap, 0, 0, unRotatedBitmap.getWidth(), unRotatedBitmap.getHeight(), matrix, false);
+
+        ByteArrayOutputStream scaledByteStream = new ByteArrayOutputStream();
+        rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, scaledByteStream);
+
+        return scaledByteStream.toByteArray();
+    }
+
+    private byte[] getResizedImage(byte[] unScaledByteArray, double ratio) {
+        Bitmap unScaledBitmap = BitmapFactory.decodeByteArray(unScaledByteArray, 0, unScaledByteArray.length);
+
+        int targetWidth = (int) (unScaledBitmap.getWidth() * ratio);
+        int targetHeight = (int) (unScaledBitmap.getHeight() * ratio);
+
+        if (targetWidth > 0 && targetHeight > 0) {
+            return getResizedImage(unScaledBitmap, targetWidth, targetHeight);
+        } else {
+            return unScaledByteArray;
+        }
+    }
+
+    private byte[] getResizedImage(byte[] unScaledByteArray, int targetWidth, int targetHeight) {
+        Bitmap unScaledBitmap = BitmapFactory.decodeByteArray(unScaledByteArray, 0, unScaledByteArray.length);
+
+        int[] widthHeight = calculateAspectRatio(unScaledBitmap.getWidth(), unScaledBitmap.getHeight(), targetWidth, targetHeight);
+
+        targetWidth = widthHeight[0];
+        targetHeight = widthHeight[1];
+
+        if (targetWidth > 0 && targetHeight > 0) {
+            return getResizedImage(unScaledBitmap, targetWidth, targetHeight);
+        } else {
+            return unScaledByteArray;
+        }
+    }
+
+    private byte[] getResizedImage(Bitmap unScaledBitmap, int targetWidth, int targetHeight) {
+        Bitmap scaledBitmap = Bitmap.createScaledBitmap(unScaledBitmap, targetWidth, targetHeight, true);
+
+        ByteArrayOutputStream scaledByteStream = new ByteArrayOutputStream();
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 100, scaledByteStream);
+
+        return scaledByteStream.toByteArray();
+    }
+
+    public int[] calculateAspectRatio(int origWidth, int origHeight, int targetWidth, int targetHeight) {
+        int newWidth = targetWidth;
+        int newHeight = targetHeight;
+
+        // If no new width or height were specified return the original bitmap
+        if (newWidth <= 0 && newHeight <= 0) {
+            newWidth = origWidth;
+            newHeight = origHeight;
+        }
+        // Only the width was specified
+        else if (newWidth > 0 && newHeight <= 0) {
+            newHeight = (int) (newWidth / (double) origWidth * origHeight);
+        }
+        // only the height was specified
+        else if (newWidth <= 0 && newHeight > 0) {
+            newWidth = (int) (newHeight / (double) origHeight * origWidth);
+        }
+        // If the user specified both a positive width and height
+        // (potentially different aspect ratio) then the width or height is
+        // scaled so that the image fits while maintaining aspect ratio.
+        // Alternatively, the specified width and height could have been
+        // kept and Bitmap.SCALE_TO_FIT specified when scaling, but this
+        // would result in whitespace in the new image.
+        else {
+            double newRatio = newWidth / (double) newHeight;
+            double origRatio = origWidth / (double) origHeight;
+
+            if (origRatio > newRatio) {
+                newHeight = (newWidth * origHeight) / origWidth;
+            } else if (origRatio < newRatio) {
+                newWidth = (newHeight * origWidth) / origHeight;
+            }
+        }
+
+        int[] widthHeight = new int[2];
+        widthHeight[0] = newWidth;
+        widthHeight[1] = newHeight;
+
+        return widthHeight;
+    }
+
+    private void parseOptions(JSONObject options) throws Exception {
+        if (options == null) {
+            return;
+        }
+
+        // flash mode
+        if (options.has(K_FLASH_MODE_KEY)) {
+            mFlashMode = getFlashMode(options.getBoolean(K_FLASH_MODE_KEY));
+        }
+
+        // lens orientation
+        if (options.has(K_LENS_ORIENTATION_KEY)) {
+            mCameraFacing = getCameraFacing(options.getString(K_LENS_ORIENTATION_KEY));
+        }
+
+        // fps
+        if (options.has(K_FPS_KEY)) {
+            mFps = options.getInt(K_FPS_KEY);
+        }
+
+        // width
+        if (options.has(K_WIDTH_KEY)) {
+            mWidth = mCaptureWidth = mCanvasWidth = options.getInt(K_WIDTH_KEY);
+        }
+
+        // height
+        if (options.has(K_HEIGHT_KEY)) {
+            mHeight = mCaptureHeight = mCanvasHeight = options.getInt(K_HEIGHT_KEY);
+        }
+
+        // hasThumbnail
+        if (options.has(K_HAS_THUMBNAIL_KEY)) {
+            mHasThumbnail = options.getBoolean(K_HAS_THUMBNAIL_KEY);
+        }
+
+        // thumbnailRatio
+        if (options.has(K_THUMBNAIL_RATIO_KEY)) {
+            mThumbnailRatio = options.getDouble(K_THUMBNAIL_RATIO_KEY);
+        }
+
+        // canvas
+        if (options.has(K_CANVAS_KEY)) {
+            JSONObject canvas = options.getJSONObject(K_CANVAS_KEY);
+            if (canvas.has(K_WIDTH_KEY)) {
+                mCanvasWidth = canvas.getInt(K_WIDTH_KEY);
+            }
+            if (canvas.has(K_HEIGHT_KEY)) {
+                mCanvasHeight = canvas.getInt(K_HEIGHT_KEY);
+            }
+        }
+
+        // capture
+        if (options.has(K_CAPTURE_KEY)) {
+            JSONObject capture = options.getJSONObject(K_CAPTURE_KEY);
+            // resolution.width
+            if (capture.has(K_WIDTH_KEY)) {
+                mCaptureWidth = capture.getInt(K_WIDTH_KEY);
+            }
+            // resolution.height
+            if (capture.has(K_HEIGHT_KEY)) {
+                mCaptureHeight = capture.getInt(K_HEIGHT_KEY);
+            }
+        }
+    }
+
+    private JSONObject getPluginResultMessage(String message) {
+
+        JSONObject output = new JSONObject();
+        JSONObject images = new JSONObject();
+
+        try {
+            output.put("images", images);
+
+            try {
+                images.put("orientation", mDisplayOrientation);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.output.images.orientation into JSON result : " + e.getMessage());
+            }
+        } catch (JSONException e) {
+            if (LOGGING)
+                Log.e(TAG, "Cannot put data.output.images into JSON result : " + e.getMessage());
+        }
+
+        return getPluginResultMessage(message, output);
+    }
+
+    private JSONObject getPluginResultMessage(String message, JSONObject output) {
+
+        JSONObject pluginResultMessage = new JSONObject();
+
+        try {
+            pluginResultMessage.put("message", message);
+        } catch (JSONException e) {
+            if (LOGGING) Log.e(TAG, "Cannot put data.message into JSON result : " + e.getMessage());
+        }
+
+        JSONObject options = new JSONObject();
+
+        try {
+            pluginResultMessage.put("options", options);
+
+            try {
+                options.put("width", mWidth);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.width into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("height", mHeight);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.height into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("fps", mFps);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.fps into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("flashMode", getFlashModeAsBoolean(mFlashMode));
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.flashMode into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("cameraFacing", getCameraFacingToString(mCameraFacing));
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.cameraFacing into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("hasThumbnail", mHasThumbnail);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.hasThumbnail into JSON result : " + e.getMessage());
+            }
+
+            try {
+                options.put("thumbnailRatio", mThumbnailRatio);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.thumbnailRatio into JSON result : " + e.getMessage());
+            }
+
+            JSONObject canvas = new JSONObject();
+
+            try {
+                options.put("canvas", canvas);
+
+                try {
+                    canvas.put("width", mCanvasWidth);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.options.canvas.width into JSON result : " + e.getMessage());
+                }
+
+                try {
+                    canvas.put("height", mCanvasHeight);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.options.canvas.height into JSON result : " + e.getMessage());
+                }
+
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.canvas into JSON result : " + e.getMessage());
+            }
+
+            JSONObject capture = new JSONObject();
+
+            try {
+                options.put("capture", capture);
+
+                try {
+                    capture.put("width", mCaptureWidth);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.options.capture.width into JSON result : " + e.getMessage());
+                }
+
+                try {
+                    capture.put("height", mCaptureHeight);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.options.capture.width into JSON result : " + e.getMessage());
+                }
+
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.options.capture into JSON result : " + e.getMessage());
+            }
+
+        } catch (JSONException e) {
+            if (LOGGING) Log.e(TAG, "Cannot put data.options into JSON result : " + e.getMessage());
+        }
+
+        JSONObject preview = new JSONObject();
+
+        try {
+            pluginResultMessage.put("preview", preview);
+
+            try {
+                preview.put("started", mPreviewing);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.preview.started into JSON result : " + e.getMessage());
+            }
+            try {
+                preview.put("format", getPreviewFormatToString(mPreviewFormat));
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.preview.format into JSON result : " + e.getMessage());
+            }
+            try {
+                preview.put("focusMode", mPreviewFocusMode);
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.preview.focusMode into JSON result : " + e.getMessage());
+            }
+            if (mPreviewSize != null) {
+                try {
+                    preview.put("width", mPreviewSize.width);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.preview.width into JSON result : " + e.getMessage());
+                }
+
+                try {
+                    preview.put("height", mPreviewSize.height);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.preview.height into JSON result : " + e.getMessage());
+                }
+            }
+
+            JSONObject camera = new JSONObject();
+
+            try {
+                preview.put("camera", camera);
+
+                try {
+                    camera.put("id", mCameraId);
+                } catch (JSONException e) {
+                    if (LOGGING)
+                        Log.e(TAG, "Cannot put data.preview.camera.id into JSON result : " + e.getMessage());
+                }
+
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.preview.camera into JSON result : " + e.getMessage());
+            }
+
+            JSONObject fps = new JSONObject();
+
+            try {
+                preview.put("fps", fps);
+
+                if (mPreviewFpsRange != null) {
+                    try {
+                        fps.put("min", mPreviewFpsRange[0] / 1000);
+                    } catch (JSONException e) {
+                        if (LOGGING)
+                            Log.e(TAG, "Cannot put data.preview.fps.min into JSON result : " + e.getMessage());
+                    }
+                    try {
+                        fps.put("max", mPreviewFpsRange[1] / 1000);
+                    } catch (JSONException e) {
+                        if (LOGGING)
+                            Log.e(TAG, "Cannot put data.preview.fps.max into JSON result : " + e.getMessage());
+                    }
+                }
+
+            } catch (JSONException e) {
+                if (LOGGING)
+                    Log.e(TAG, "Cannot put data.preview.fps into JSON result : " + e.getMessage());
+            }
+
+        } catch (JSONException e) {
+            if (LOGGING) Log.e(TAG, "Cannot put data.preview into JSON result : " + e.getMessage());
+        }
+
+        try {
+            pluginResultMessage.put("output", output);
+        } catch (JSONException e) {
+            if (LOGGING) Log.e(TAG, "Cannot put data.output into JSON result : " + e.getMessage());
+        }
+
+        return pluginResultMessage;
+    }
+
+    private int getCameraFacing(String option) {
+        if (option.equals("front")) {
+            return Camera.CameraInfo.CAMERA_FACING_FRONT;
+        } else {
+            return Camera.CameraInfo.CAMERA_FACING_BACK;
+        }
+    }
+
+    private String getCameraFacingToString(int constant) {
+        if (constant == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            return "front";
+        } else {
+            return "back";
+        }
+    }
+
+    private String getFlashMode(boolean isFlashModeOn) {
+        if (isFlashModeOn) {
+            return Camera.Parameters.FLASH_MODE_TORCH;
+        } else {
+            return Camera.Parameters.FLASH_MODE_OFF;
+        }
+    }
+
+    private boolean getFlashModeAsBoolean(String constant) {
+        if (constant != null) {
+            return constant.equals(Camera.Parameters.FLASH_MODE_TORCH);
+        } else {
+            return false;
+        }
+    }
+
+    private int getCurrentOrientation() {
+        if (mActivity != null) {
+            return mActivity.getResources().getConfiguration().orientation;
+        } else {
+            return Configuration.ORIENTATION_UNDEFINED;
+        }
+    }
+
+    private String getCurrentOrientationToString() {
+        switch (mOrientation) {
+            case Configuration.ORIENTATION_LANDSCAPE:
+                return "landscape";
+            case Configuration.ORIENTATION_PORTRAIT:
+                return "portrait";
+            default:
+                return "unknown";
+        }
+    }
+
+    private String getPreviewFormatToString(int previewFormat) {
+        switch (previewFormat) {
+            case ImageFormat.DEPTH16:
+                return "DEPTH16";
+            case ImageFormat.DEPTH_POINT_CLOUD:
+                return "DEPTH_POINT_CLOUD";
+            case ImageFormat.FLEX_RGBA_8888:
+                return "FLEX_RGBA_8888";
+            case ImageFormat.FLEX_RGB_888:
+                return "FLEX_RGB_888";
+            case ImageFormat.JPEG:
+                return "JPEG";
+            case ImageFormat.NV16:
+                return "NV16";
+            case ImageFormat.NV21:
+                return "NV21";
+            case ImageFormat.PRIVATE:
+                return "PRIVATE";
+            case ImageFormat.RAW10:
+                return "RAW10";
+            case ImageFormat.RAW12:
+                return "RAW12";
+            case ImageFormat.RAW_PRIVATE:
+                return "RAW_PRIVATE";
+            case ImageFormat.RAW_SENSOR:
+                return "RAW_SENSOR";
+            case ImageFormat.RGB_565:
+                return "RGB_565";
+            case ImageFormat.UNKNOWN:
+                return "UNKNOWN";
+            case ImageFormat.YUV_420_888:
+                return "YUV_420_888";
+            case ImageFormat.YUV_422_888:
+                return "YUV_422_888";
+            case ImageFormat.YUV_444_888:
+                return "YUV_444_888";
+            case ImageFormat.YUY2:
+                return "YUY2";
+            case ImageFormat.YV12:
+                return "YV12";
+            default:
+                return "UNKNOWN";
+        }
+    }
 }
