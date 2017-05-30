@@ -7,6 +7,9 @@
 The purpose of the plugin is to capture video to preview camera in a web page's canvas element.
 Allows to select front or back camera and to control the flash.
 
+## Working Demo
+Having trouble using CanvasCamera Plugin ? [Check our working demo here](https://github.com/VirtuoWorks/CanvasCameraDemo).
+
 ## Supported Platforms
 - iOS
 - Android
