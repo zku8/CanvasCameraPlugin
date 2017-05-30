@@ -1,7 +1,7 @@
 [![NPM Version][npm-image]][npm-url]
 [![NPM Downloads][downloads-image]][downloads-url]
 
-# CanvasCamera Plugin
+# Cordova CanvasCamera plugin
 
 ## Plugin's Purpose
 The purpose of the plugin is to capture video to preview camera in a web page's canvas element.
