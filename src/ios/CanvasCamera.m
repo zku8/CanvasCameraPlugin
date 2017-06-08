@@ -15,6 +15,7 @@
 
 static BOOL const LOGGING                    = NO;
 
+static NSString *const CCUseKey              = @"use";
 static NSString *const CCFpsKey              = @"fps";
 static NSString *const CCWidthKey            = @"width";
 static NSString *const CCHeightKey           = @"height";
@@ -33,6 +34,7 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
 @property (readwrite, assign) BOOL hasPendingOperation;
 
 // Private Access
+@property (readwrite, strong) NSString *use;
 @property (readwrite, assign) NSInteger fps;
 @property (readwrite, assign) NSInteger width;
 @property (readwrite, assign) NSInteger height;
@@ -578,6 +580,13 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
         if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][parseOptions] Capture device position : %@", [self devicePositionToString:self.devicePosition]);
     }
 
+    // use
+    valueAsString = options[CCUseKey];
+    if (valueAsString) {
+        self.use = valueAsString;
+        if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][parseOptions] Use : %@", self.use);
+    }
+
     // fps
     valueAsString = options[CCFpsKey];
     if (valueAsString) {
@@ -730,24 +739,30 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
             // release uiImage
             uiImage = nil;
 
-            // Get a file path to save the JPEG as a file
-            NSString *fullImagePath = [files valueForKey:@"fullsize"];
-            if (fullImagePath) {
-                // Write the data to the file
-                if ([fullsizeData writeToFile:fullImagePath atomically:YES]) {
-                    if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][captureOutput] Fullsize image file with path [%@] saved.", fullImagePath);
-                    fullImagePath = [NSString stringWithFormat:@"file://%@", fullImagePath];
+            NSString *fullImagePath = nil;
+            if ([self.use isEqualToString:@"file"]) {
+                // Get a file path to save the JPEG as a file
+                fullImagePath = [files valueForKey:@"fullsize"];
+                if (fullImagePath) {
+                    // Write the data to the file
+                    if ([fullsizeData writeToFile:fullImagePath atomically:YES]) {
+                        if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][captureOutput] Fullsize image file with path [%@] saved.", fullImagePath);
+                        fullImagePath = [NSString stringWithFormat:@"file://%@", fullImagePath];
+                    } else {
+                        if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Could not save fullsize image file with path [%@].", fullImagePath);
+                        fullImagePath = nil;
+                    }
+                    
                 } else {
-                    if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Could not save fullsize image file with path [%@].", fullImagePath);
+                    if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Unable to retrieve path for fullsize image file.");
                     fullImagePath = nil;
                 }
-                
-            } else {
-                if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Unable to retrieve path for fullsize image file.");
-                fullImagePath = nil;
             }
-            
-            NSString *fullImageDataToB64 = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [fullsizeData base64EncodedStringWithOptions:0]];
+
+            NSString *fullImageDataToB64 = nil;
+            if ([self.use isEqualToString:@"data"]) {
+              fullImageDataToB64 = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [fullsizeData base64EncodedStringWithOptions:0]];
+            }
 
             // release fullsizeData
             fullsizeData = nil;
@@ -757,41 +772,49 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
             
             // Populating output NSDictionnary
             images[@"fullsize"] = @{
-                                    @"file": fullImagePath,
-                                    @"data" : fullImageDataToB64,
+                                    @"file": (fullImagePath) ? fullImagePath : @"",
+                                    @"data" : (fullImageDataToB64) ? fullImageDataToB64 : @"",
                                     @"rotation" : @([self getDisplayRotation]),
-                                    @"orientation" : [self getCurrentOrientationToString]
+                                    @"orientation" : [self getCurrentOrientationToString],
+                                    @"timestamp" : @([[NSDate date] timeIntervalSince1970] * 1000)
                                     };
 
             fullImagePath = nil;
             fullImageDataToB64 = nil;
 
             if (thumbnailData) {
-                NSString *thumbImagePath = [files valueForKey:@"thumbnail"];
-                if (thumbImagePath) {
-                    // Write the data to the file
-                    if ([thumbnailData writeToFile:thumbImagePath atomically:YES]) {
-                        if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][captureOutput] Thumbnail image file with path [%@] saved.", thumbImagePath);
-                        thumbImagePath = [NSString stringWithFormat:@"file://%@", thumbImagePath];
+                NSString *thumbImagePath = nil;
+                if ([self.use isEqualToString:@"file"]) {
+                    thumbImagePath = [files valueForKey:@"thumbnail"];
+                    if (thumbImagePath) {
+                        // Write the data to the file
+                        if ([thumbnailData writeToFile:thumbImagePath atomically:YES]) {
+                            if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][captureOutput] Thumbnail image file with path [%@] saved.", thumbImagePath);
+                            thumbImagePath = [NSString stringWithFormat:@"file://%@", thumbImagePath];
+                        } else {
+                            if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Could not save thumbnail image file with path [%@].", thumbImagePath);
+                            thumbImagePath = nil;
+                        }
                     } else {
-                        if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Could not save thumbnail image file with path [%@].", thumbImagePath);
+                        if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Unable to retrieve path for thumbnail image file.");
                         thumbImagePath = nil;
                     }
-                } else {
-                    if (LOGGING) NSLog(@"[ERROR][CanvasCamera][captureOutput] Unable to retrieve path for thumbnail image file.");
-                    thumbImagePath = nil;
                 }
 
-                NSString *thumbImageDataToB64 = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [thumbnailData base64EncodedStringWithOptions:0]];
+                NSString *thumbImageDataToB64 = nil;
+                if ([self.use isEqualToString:@"file"]) {
+                    thumbImageDataToB64 = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [thumbnailData base64EncodedStringWithOptions:0]];
+                }
 
                 // release thumbnailData
                 thumbnailData = nil;
-                
+
                 images[@"thumbnail"] = @{
-                                        @"file": thumbImagePath,
-                                        @"data" : thumbImageDataToB64,
+                                        @"file": (thumbImagePath) ? thumbImagePath : @"",
+                                        @"data" : (thumbImageDataToB64) ? thumbImageDataToB64 : @"",
                                         @"rotation" : @([self getDisplayRotation]),
-                                        @"orientation" : [self getCurrentOrientationToString]
+                                        @"orientation" : [self getCurrentOrientationToString],
+                                        @"timestamp" : @([[NSDate date] timeIntervalSince1970] * 1000)
                                         };
 
                 thumbImagePath = nil;

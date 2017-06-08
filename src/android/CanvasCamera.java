@@ -105,7 +105,7 @@ public class CanvasCamera extends CordovaPlugin {
         public void onPreviewFrame(final byte[] data, Camera camera) {
             Runnable renderFrame = new Runnable() {
                 public void run() {
-                    if (mPreviewing) {
+                    if (mPreviewing && data.length > 0) {
                         // Get display orientation.
                         int displayOrientation = getDisplayOrientation();
                         // Getting output file paths.
@@ -162,6 +162,13 @@ public class CanvasCamera extends CordovaPlugin {
                                         Log.e(TAG, "Cannot put data.output.images.fullsize.orientation into JSON result : " + e.getMessage());
                                 }
 
+                                try {
+                                    fullsize.put("timestamp", (new java.util.Date()).getTime());
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.timestamp into JSON result : " + e.getMessage());
+                                }
+
                             } catch (JSONException e) {
                                 if (LOGGING)
                                     Log.e(TAG, "Cannot put data.output.images.fullsize into JSON result : " + e.getMessage());
@@ -212,6 +219,13 @@ public class CanvasCamera extends CordovaPlugin {
                                         } catch (JSONException e) {
                                             if (LOGGING)
                                                 Log.e(TAG, "Cannot put data.output.images.thumbnail.orientation into JSON result : " + e.getMessage());
+                                        }
+
+                                        try {
+                                            thumbnail.put("timestamp", (new java.util.Date()).getTime());
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.timestamp into JSON result : " + e.getMessage());
                                         }
                                     } catch (JSONException e) {
                                         if (LOGGING)
@@ -911,45 +925,45 @@ public class CanvasCamera extends CordovaPlugin {
     private synchronized Map<String, File> getImageFilesPaths() {
         Map<String, File> files = new HashMap<String, File>();
 
-        mFileId++;
+        if (mDir != null) {
+            mFileId++;
 
-        for (String fileName : FILENAMES) {
-            if (mFileId > mFps) {
-                File prevFile = new File(mDir, String.valueOf(fileName.charAt(0)) + (mFileId - mFps) + "-canvascamera.jpg");
-                if (prevFile.exists()) {
-                    if (prevFile.delete()) {
-                        if (LOGGING)
-                            Log.v(TAG, "Previously cached file " + prevFile.getName() + " deleted !");
-                    } else {
-                        if (LOGGING)
-                            Log.w(TAG, "Could not delete previous cached file " + prevFile.getName() + ".");
+            for (String fileName : FILENAMES) {
+                if (mFileId > mFps) {
+                    File prevFile = new File(mDir, String.valueOf(fileName.charAt(0)) + (mFileId - mFps) + "-canvascamera.jpg");
+                    if (prevFile.exists()) {
+                        if (prevFile.delete()) {
+                            if (LOGGING)
+                                Log.v(TAG, "Previously cached file " + prevFile.getName() + " deleted !");
+                        } else {
+                            if (LOGGING)
+                                Log.w(TAG, "Could not delete previous cached file " + prevFile.getName() + ".");
+                        }
                     }
                 }
-            }
 
-            File curFile = new File(mDir, String.valueOf(fileName.charAt(0)) + mFileId + "-canvascamera.jpg");
-            if (curFile.exists()) {
-                if (curFile.delete()) {
-                    if (LOGGING)
-                        Log.v(TAG, "Current cached file " + curFile.getName() + " deleted !");
-                } else {
-                    if (LOGGING)
-                        Log.w(TAG, "Could not delete current cached file " + curFile.getName() + ".");
+                File curFile = new File(mDir, String.valueOf(fileName.charAt(0)) + mFileId + "-canvascamera.jpg");
+                if (curFile.exists()) {
+                    if (curFile.delete()) {
+                        if (LOGGING)
+                            Log.v(TAG, "Current cached file " + curFile.getName() + " deleted !");
+                    } else {
+                        if (LOGGING)
+                            Log.w(TAG, "Could not delete current cached file " + curFile.getName() + ".");
+                    }
                 }
-            }
 
-            files.put(fileName, curFile);
+                files.put(fileName, curFile);
+            }
         }
 
         return files;
     }
 
     private void deleteCachedImageFiles() {
-        if (mActivity != null) {
+        if (mActivity != null && mDir != null) {
             if (LOGGING) Log.v(TAG, "Deleting cached files...");
-            File dir = mActivity.getExternalFilesDir(null);
-
-            File[] filesList = dir != null ? dir.listFiles() : new File[0];
+            File[] filesList = mDir != null ? mDir.listFiles() : new File[0];
             for (File aFilesList : filesList) {
                 if (aFilesList.isFile()) {
                     String fileName = aFilesList.getName();
@@ -968,105 +982,125 @@ public class CanvasCamera extends CordovaPlugin {
     }
 
     private boolean saveImage(byte[] bytes, File file) {
-        FileOutputStream output = null;
-        try {
-            output = new FileOutputStream(file);
-            output.write(bytes);
-        } catch (FileNotFoundException e) {
-            if (LOGGING) Log.e(TAG, "Could not find output file : " + e.getMessage());
-            return false;
-        } catch (IOException e) {
-            e.printStackTrace();
-            if (LOGGING) Log.e(TAG, "Could not write output file : " + e.getMessage());
-            return false;
-        } finally {
-            if (null != output) {
-                try {
-                    output.close();
-                } catch (IOException e) {
-                    if (LOGGING)
-                        Log.e(TAG, "Could not close file output stream : " + e.getMessage());
-                    return false;
+        if (file != null && bytes.length > 0) {
+            FileOutputStream output = null;
+            try {
+                output = new FileOutputStream(file);
+                output.write(bytes);
+            } catch (FileNotFoundException e) {
+                if (LOGGING) Log.e(TAG, "Could not find output file : " + e.getMessage());
+                return false;
+            } catch (IOException e) {
+                e.printStackTrace();
+                if (LOGGING) Log.e(TAG, "Could not write output file : " + e.getMessage());
+                return false;
+            } finally {
+                if (null != output) {
+                    try {
+                        output.close();
+                    } catch (IOException e) {
+                        if (LOGGING)
+                            Log.e(TAG, "Could not close file output stream : " + e.getMessage());
+                        return false;
+                    }
                 }
+                return true;
             }
-            return true;
+        } else {
+            return false;
         }
     }
 
-    private byte[] dataToJpeg(byte[] data, int width, int height) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        // The second parameter is the actual image format
-        YuvImage yuvImage = new YuvImage(data, mPreviewFormat, width, height, null);
-        // width and height define the size of the bitmap filled with the preview image
-        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, out);
-        // returns the jpeg as byte array
-        return out.toByteArray();
+    private byte[] dataToJpeg(byte[] byteArray, int width, int height) {
+        if (byteArray.length > 0) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            // The second parameter is the actual image format
+            YuvImage yuvImage = new YuvImage(byteArray, mPreviewFormat, width, height, null);
+            // width and height define the size of the bitmap filled with the preview image
+            yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, out);
+            // returns the jpeg as bytes array
+            return out.toByteArray();
+        } else {
+            return byteArray;
+        }
     }
 
     private byte[] getResizedImage(byte[] byteArray, double ratio) {
-        Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+        if (byteArray.length > 0) {
+            Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
 
-        int targetWidth = (int) (bitmap.getWidth() * ratio);
-        int targetHeight = (int) (bitmap.getHeight() * ratio);
+            int targetWidth = (int) (bitmap.getWidth() * ratio);
+            int targetHeight = (int) (bitmap.getHeight() * ratio);
 
-        bitmap.recycle();
+            bitmap.recycle();
 
-        if (targetWidth > 0 && targetHeight > 0) {
-            return getResizedAndRotatedImage(byteArray, targetWidth, targetHeight, 0);
+            if (targetWidth > 0 && targetHeight > 0) {
+                return getResizedAndRotatedImage(byteArray, targetWidth, targetHeight, 0);
+            } else {
+                return byteArray;
+            }
         } else {
             return byteArray;
         }
     }
 
     private byte[] getResizedImage(byte[] byteArray, int targetWidth, int targetHeight) {
-        if (targetWidth > 0 && targetHeight > 0) {
-            return getResizedAndRotatedImage(byteArray, targetWidth, targetHeight, 0);
+        if (byteArray.length > 0) {
+            if (targetWidth > 0 && targetHeight > 0) {
+                return getResizedAndRotatedImage(byteArray, targetWidth, targetHeight, 0);
+            } else {
+                return byteArray;
+            }
         } else {
             return byteArray;
         }
     }
 
     private byte[] getResizedAndRotatedImage(byte[] byteArray, int targetWidth, int targetHeight, int angle) {
-        // unscaled unrotated bitmap
-        Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+        if (byteArray.length > 0) {
+            // unscaled unrotated bitmap
+            Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
 
-        if (targetWidth > 0 && targetHeight > 0) {
+            if (targetWidth > 0 && targetHeight > 0) {
 
-            // calculate aspect ratio
-            int[] widthHeight = calculateAspectRatio(bitmap.getWidth(), bitmap.getHeight(), targetHeight, targetWidth);
+                // calculate aspect ratio
+                int[] widthHeight = calculateAspectRatio(bitmap.getWidth(), bitmap.getHeight(), targetHeight, targetWidth);
 
-            targetWidth = widthHeight[0];
-            targetHeight = widthHeight[1];
+                targetWidth = widthHeight[0];
+                targetHeight = widthHeight[1];
 
-            // create scaled bitmap
-            bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+                // create scaled bitmap
+                bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
 
-            // rotation ?
-            if (angle != 0) {
-                final Matrix matrix = new Matrix();
+                // rotation ?
+                if (angle != 0) {
+                    final Matrix matrix = new Matrix();
 
-                // mirroring
-                if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                    matrix.preScale(-1.0f, 1.0f);
+                    // mirroring
+                    if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                        matrix.preScale(-1.0f, 1.0f);
+                    }
+
+                    // rotation
+                    matrix.postRotate(angle);
+
+                    // create rotated bitmap
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, targetWidth, targetHeight, matrix, false);
                 }
 
-                // rotation
-                matrix.postRotate(angle);
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
 
-                // create rotated bitmap
-                bitmap = Bitmap.createBitmap(bitmap, 0, 0, targetWidth, targetHeight, matrix, false);
+                // recycling bitmap
+                bitmap.recycle();
+
+                byteArray = byteArrayOutputStream.toByteArray();
+                return byteArray;
+            } else {
+                bitmap.recycle();
+                return byteArray;
             }
-
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
-
-            // recycling bitmap
-            bitmap.recycle();
-
-            byteArray = byteArrayOutputStream.toByteArray();
-            return byteArray;
         } else {
-            bitmap.recycle();
             return byteArray;
         }
     }
