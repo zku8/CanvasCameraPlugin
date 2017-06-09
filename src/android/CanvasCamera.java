@@ -1052,11 +1052,11 @@ public class CanvasCamera extends CordovaPlugin {
                 // calculate aspect ratio
                 int[] widthHeight = calculateAspectRatio(bitmap.getWidth(), bitmap.getHeight(), targetHeight, targetWidth);
 
-                targetWidth = widthHeight[0];
-                targetHeight = widthHeight[1];
+                int width = widthHeight[0];
+                int height = widthHeight[1];
 
                 // create scaled bitmap
-                bitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+                bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
 
                 // rotation ?
                 if (angle != 0) {
@@ -1071,7 +1071,7 @@ public class CanvasCamera extends CordovaPlugin {
                     matrix.postRotate(angle);
 
                     // create rotated bitmap
-                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, targetWidth, targetHeight, matrix, false);
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
                 }
 
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();

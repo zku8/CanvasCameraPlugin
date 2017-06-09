@@ -1,6 +1,6 @@
 [![NPM Version][npm-image]][npm-url]
 [![NPM Downloads][downloads-image]][downloads-url]
-[![Codacy Badge][codacity-image]][codacity-url]
+[![Codacy Badge][codacy-image]][codacy-url]
 
 # Cordova CanvasCamera plugin
 
@@ -191,9 +191,5 @@ This software is released under the [MIT License][mit-license].
 [npm-url]: https://www.npmjs.com/package/com.virtuoworks.cordova-plugin-canvascamera
 [downloads-image]: https://img.shields.io/npm/dm/com.virtuoworks.cordova-plugin-canvascamera.svg
 [downloads-url]: https://www.npmjs.com/package/com.virtuoworks.cordova-plugin-canvascamera
-[codacity-image]: https://api.codacy.com/project/badge/Grade/dcccd741d63d4b0ea51ae3ccb2cd7d89
-[codacity-url]: https://www.codacy.com/app/VirtuoWorks/CanvasCameraPlugin?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=VirtuoWorks/CanvasCameraPlugin&amp;utm_campaign=Badge_Grade
-
-
-
-
+[codacy-image]: https://api.codacy.com/project/badge/Grade/dcccd741d63d4b0ea51ae3ccb2cd7d89
+[codacy-url]: https://www.codacy.com/app/VirtuoWorks/CanvasCameraPlugin?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=VirtuoWorks/CanvasCameraPlugin&amp;utm_campaign=Badge_Grade

@@ -23,7 +23,7 @@
 *    flashMode: false,
 *    hasThumbnail: true,
 *    thumbnailRatio: 1/6,
-*    cameraFacing: "front"
+*    cameraFacing: 'front'
 *  }
 **/
 
@@ -234,21 +234,21 @@ CanvasCamera.prototype.createRenderer = (function (element) {
         this.available = true;
 
         return this;
-    }
+    };
 
     Renderer.prototype.disable = function(){
         this.available = false;
 
         return this;
-    }
+    };
 
     Renderer.prototype.enabled = function(){
         return this.available;
-    }
+    };
 
     Renderer.prototype.disabled = function(){
         return !this.available;
-    }
+    };
 
     Renderer.prototype.invert = function(){
         if (this.size) {
@@ -279,7 +279,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
         };
 
         return this;
-    }
+    };
 
     Renderer.prototype.resize = function(){
         if (this.size) {
@@ -329,7 +329,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
     };
 
     Renderer.prototype.setOnBeforeDraw = function(onBeforeDraw){
-        if (onBeforeDraw && typeof onBeforeDraw == 'function') {
+        if (onBeforeDraw && typeof onBeforeDraw === 'function') {
             this.onBeforeDraw = onBeforeDraw;
         };
 
@@ -337,7 +337,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
     };
 
     Renderer.prototype.setAfterDraw = function(onAfterDraw){
-        if (onAfterDraw && typeof onAfterDraw == 'function') {
+        if (onAfterDraw && typeof onAfterDraw === 'function') {
             this.onAfterDraw = onAfterDraw;
         };
 
@@ -373,56 +373,56 @@ CanvasCamera.prototype.start = function(options, onError, onSuccess) {
     this.options = options;
     this.setRenderingPresets();
 
-    if (onSuccess && typeof onSuccess == 'function') {
+    if (onSuccess && typeof onSuccess === 'function') {
         this.onCapture = onSuccess;
     }
 
     this.enableRenderers();
     cordova.exec(this.capture.bind(this), function(error) {
         this.disableRenderers();
-        if (onError && typeof onError == 'function') {
+        if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), "CanvasCamera", "startCapture", [this.options]);
+    }.bind(this), 'CanvasCamera', 'startCapture', [this.options]);
 };
 
 CanvasCamera.prototype.stop = function(onError, onSuccess) {
     this.disableRenderers();
     cordova.exec(function(data){
-        if (onSuccess && typeof onSuccess == 'function') {
+        if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
     }.bind(this), function(error) {
-        if (onError && typeof onError == 'function') {
+        if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), "CanvasCamera", "stopCapture", []);
+    }.bind(this), 'CanvasCamera', 'stopCapture', []);
 };
 
 CanvasCamera.prototype.flashMode = function(flashMode, onError, onSuccess) {
     cordova.exec(function(data){
-        if (onSuccess && typeof onSuccess == 'function') {
+        if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
     }.bind(this), function(error) {
-        if (onError && typeof onError == 'function') {
+        if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), "CanvasCamera", "flashMode", [flashMode]);
+    }.bind(this), 'CanvasCamera', 'flashMode', [flashMode]);
 };
 
 CanvasCamera.prototype.cameraPosition = function(cameraFacing, onError, onSuccess) {
     this.disableRenderers();
     cordova.exec(function(data){
         this.enableRenderers();
-        if (onSuccess && typeof onSuccess == 'function') {
+        if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
     }.bind(this), function(error) {
-        if (onError && typeof onError == 'function') {
+        if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), "CanvasCamera", "cameraPosition", [cameraFacing]);
+    }.bind(this), 'CanvasCamera', 'cameraPosition', [cameraFacing]);
 };
 
 CanvasCamera.prototype.capture = function(data) {
@@ -439,13 +439,13 @@ CanvasCamera.prototype.capture = function(data) {
         };
     };
 
-    if (this.onCapture && typeof this.onCapture == 'function') {
+    if (this.onCapture && typeof this.onCapture === 'function') {
         this.onCapture(data);
     }
 };
 
 CanvasCamera.prototype.enableRenderers = function() {
-    if (this.canvas && typeof this.canvas == 'object') {
+    if (this.canvas && typeof this.canvas === 'object') {
         for (var renderer in this.canvas) {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].disabled()) {
@@ -457,7 +457,7 @@ CanvasCamera.prototype.enableRenderers = function() {
 };
 
 CanvasCamera.prototype.disableRenderers = function() {
-    if (this.canvas && typeof this.canvas == 'object') {
+    if (this.canvas && typeof this.canvas === 'object') {
         for (var renderer in this.canvas) {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].enabled()) {
@@ -478,13 +478,13 @@ CanvasCamera.prototype.setRenderingPresets = function() {
            this.options.use = 'file';
     };
 
-    if (this.options.onBeforeDraw && typeof this.options.onBeforeDraw == 'function') {
+    if (this.options.onBeforeDraw && typeof this.options.onBeforeDraw === 'function') {
         if (this.canvas.fullsize) {
             this.canvas.fullsize.setOnBeforeDraw(this.options.onBeforeDraw);
         }
     }
 
-    if (this.options.onAfterDraw && typeof this.options.onAfterDraw == 'function') {
+    if (this.options.onAfterDraw && typeof this.options.onAfterDraw === 'function') {
         if (this.canvas.fullsize) {
             this.canvas.fullsize.setOnAfterDraw(this.options.onAfterDraw);
         }
@@ -507,7 +507,7 @@ CanvasCamera.prototype.getUISize = function() {
             if (this.options.canvas.width && this.options.canvas.height) {
                if(!isNaN(parseFloat(this.options.canvas.width)) && ! isNaN(parseFloat(this.options.canvas.height))) {
                     size.auto = false;
-                    if (this.getUIOrientation() == 'portrait') {
+                    if (this.getUIOrientation() === 'portrait') {
                          size.width =  parseFloat(this.options.canvas.height);
                          size.height = parseFloat(this.options.canvas.width);
                     } else {
@@ -521,7 +521,7 @@ CanvasCamera.prototype.getUISize = function() {
         if (this.options.width && this.options.height) {
             if(!isNaN(parseFloat(this.options.width)) && ! isNaN(parseFloat(this.options.height))) {
                 size.auto = false;
-                if (this.getUIOrientation() == 'portrait') {
+                if (this.getUIOrientation() === 'portrait') {
                     size.width = parseFloat(this.options.height);
                     size.height = parseFloat(this.options.width);
                 } else {
@@ -543,7 +543,7 @@ CanvasCamera.prototype.getUIOrientation = function(){
             return 'portrait';
         } else {
             return 'landscape';
-        };
+        }
     }
 };
 
@@ -570,5 +570,4 @@ CanvasCamera.prototype.setRenderersSize = function(size) {
    return this;
 };
 
-var CanvasCamera = new CanvasCamera();
-module.exports = CanvasCamera;
+module.exports = new CanvasCamera();
