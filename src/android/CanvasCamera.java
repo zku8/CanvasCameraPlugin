@@ -749,6 +749,7 @@ public class CanvasCamera extends CordovaPlugin {
                 break; // Landscape right.
             default:
                 degrees = 0;
+                break;
         }
 
         return degrees;
