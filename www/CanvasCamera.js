@@ -81,7 +81,7 @@ CanvasCamera.prototype.createFrame = (function(image, element) {
 
             this.dWidth = this.sWidth * this.ratio;
             this.dHeight = this.sHeight * this.ratio;
-        };
+        }
 
         return this;
     };
@@ -101,7 +101,7 @@ CanvasCamera.prototype.createFrame = (function(image, element) {
     return function(image, element){
         return frame(image, element).initialize();
     };
-})();
+}());
 
 
 CanvasCamera.prototype.createRenderer = (function (element) {
@@ -171,7 +171,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
         this.context.clearRect(0, 0, this.element.width, this.element.height);
 
         return this;
-    }
+    };
 
     Renderer.prototype.draw = function(frame){
         if (frame) {
@@ -252,7 +252,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
 
     Renderer.prototype.invert = function(){
         if (this.size) {
-            var iSize = {}
+            var iSize = {};
             if (this.size.width && !isNaN(this.size.width)) {
                 if (this.fullscreen) {
                     iSize.width = parseFloat(window.innerHeight);
@@ -351,7 +351,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
     return function(element){
         return renderer(element).initialize();
     };
-})();
+}());
 
 CanvasCamera.prototype.initialize = function(fcanvas, tcanvas) {
     if(fcanvas && fcanvas.getContext) {
@@ -446,7 +446,7 @@ CanvasCamera.prototype.capture = function(data) {
 
 CanvasCamera.prototype.enableRenderers = function() {
     if (this.canvas && typeof this.canvas == 'object') {
-        for (renderer in this.canvas) {
+        for (var renderer in this.canvas) {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].disabled()) {
                     this.canvas[renderer].enable();
@@ -458,7 +458,7 @@ CanvasCamera.prototype.enableRenderers = function() {
 
 CanvasCamera.prototype.disableRenderers = function() {
     if (this.canvas && typeof this.canvas == 'object') {
-        for (renderer in this.canvas) {
+        for (var renderer in this.canvas) {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].enabled()) {
                     this.canvas[renderer].disable();

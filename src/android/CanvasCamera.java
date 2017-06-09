@@ -123,7 +123,7 @@ public class CanvasCamera extends CordovaPlugin {
                         JSONObject fullsize = new JSONObject();
 
                         if (mUse != null) {
-                            if (mUse.equals("data")) {
+                            if ("data".equals(mUse)) {
                                 String fullsizeDataToB64 = "data:image/jpeg;base64," + Base64.encodeToString(fullsizeData, Base64.DEFAULT);
                                 try {
                                     fullsize.put("data", fullsizeDataToB64);
@@ -132,14 +132,12 @@ public class CanvasCamera extends CordovaPlugin {
                                         Log.e(TAG, "Cannot put data.output.images.fullsize.data  into JSON result : " + e.getMessage());
                                 }
                             }
-                            if (mUse.equals("file")) {
-                                if (saveImage(fullsizeData, files.get("fullsize"))) {
-                                    try {
-                                        fullsize.put("file", files.get("fullsize").getPath());
-                                    } catch (JSONException e) {
-                                        if (LOGGING)
-                                            Log.e(TAG, "Cannot put data.output.images.fullsize.path into JSON result : " + e.getMessage());
-                                    }
+                            if ("file".equals(mUse) && saveImage(fullsizeData, files.get("fullsize"))) {
+                                try {
+                                    fullsize.put("file", files.get("fullsize").getPath());
+                                } catch (JSONException e) {
+                                    if (LOGGING)
+                                        Log.e(TAG, "Cannot put data.output.images.fullsize.path into JSON result : " + e.getMessage());
                                 }
                             }
                         }
@@ -182,7 +180,7 @@ public class CanvasCamera extends CordovaPlugin {
                                 JSONObject thumbnail = new JSONObject();
 
                                 if (mUse != null) {
-                                    if (mUse.equals("data")) {
+                                    if ("data".equals(mUse)) {
                                         String thumbnailDataToB64 = "data:image/jpeg;base64," + Base64.encodeToString(thumbnailData, Base64.DEFAULT);
                                         try {
                                             thumbnail.put("data", thumbnailDataToB64);
@@ -191,14 +189,12 @@ public class CanvasCamera extends CordovaPlugin {
                                                 Log.e(TAG, "Cannot put data.output.images.thumbnail.data into JSON result : " + e.getMessage());
                                         }
                                     }
-                                    if (mUse.equals("file")) {
-                                        if (saveImage(thumbnailData, files.get("thumbnail"))) {
-                                            try {
-                                                thumbnail.put("file", files.get("thumbnail").getPath());
-                                            } catch (JSONException e) {
-                                                if (LOGGING)
-                                                    Log.e(TAG, "Cannot put data.output.images.thumbnail.path into JSON result : " + e.getMessage());
-                                            }
+                                    if ("file".equals(mUse) && saveImage(thumbnailData, files.get("thumbnail"))) {
+                                        try {
+                                            thumbnail.put("file", files.get("thumbnail").getPath());
+                                        } catch (JSONException e) {
+                                            if (LOGGING)
+                                                Log.e(TAG, "Cannot put data.output.images.thumbnail.path into JSON result : " + e.getMessage());
                                         }
                                     }
                                 }
@@ -383,10 +379,8 @@ public class CanvasCamera extends CordovaPlugin {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        if (mPreviewing && mTextureView != null) {
-            if (newConfig.orientation != mOrientation) {
-                setCameraOrientation(newConfig.orientation);
-            }
+        if (mPreviewing && mTextureView != null && newConfig.orientation != mOrientation) {
+            setCameraOrientation(newConfig.orientation);
         }
     }
 
@@ -514,6 +508,8 @@ public class CanvasCamera extends CordovaPlugin {
                     }
                 });
                 break;
+            default:
+                return;
         }
     }
 
@@ -751,6 +747,8 @@ public class CanvasCamera extends CordovaPlugin {
             case Surface.ROTATION_270:
                 degrees = 270;
                 break; // Landscape right.
+            default:
+                degrees = 0;
         }
 
         return degrees;
@@ -1044,18 +1042,6 @@ public class CanvasCamera extends CordovaPlugin {
         }
     }
 
-    private byte[] getResizedImage(byte[] byteArray, int targetWidth, int targetHeight) {
-        if (byteArray.length > 0) {
-            if (targetWidth > 0 && targetHeight > 0) {
-                return getResizedAndRotatedImage(byteArray, targetWidth, targetHeight, 0);
-            } else {
-                return byteArray;
-            }
-        } else {
-            return byteArray;
-        }
-    }
-
     private byte[] getResizedAndRotatedImage(byte[] byteArray, int targetWidth, int targetHeight, int angle) {
         if (byteArray.length > 0) {
             // unscaled unrotated bitmap
@@ -1094,8 +1080,7 @@ public class CanvasCamera extends CordovaPlugin {
                 // recycling bitmap
                 bitmap.recycle();
 
-                byteArray = byteArrayOutputStream.toByteArray();
-                return byteArray;
+                return byteArrayOutputStream.toByteArray();
             } else {
                 bitmap.recycle();
                 return byteArray;
@@ -1449,7 +1434,7 @@ public class CanvasCamera extends CordovaPlugin {
     }
 
     private int getCameraFacing(String option) {
-        if (option.equals("front")) {
+        if ("front".equals(option)) {
             return Camera.CameraInfo.CAMERA_FACING_FRONT;
         } else {
             return Camera.CameraInfo.CAMERA_FACING_BACK;
@@ -1541,8 +1526,8 @@ public class CanvasCamera extends CordovaPlugin {
     }
 
     private static class CameraHandlerThread extends HandlerThread {
-        Handler mHandler = null;
         private Camera mCamera = null;
+        private Handler mHandler = null;
 
         CameraHandlerThread() {
             super("CameraHandlerThread");
@@ -1550,7 +1535,7 @@ public class CanvasCamera extends CordovaPlugin {
             mHandler = new Handler(getLooper());
         }
 
-        synchronized void cameraOpened() {
+        private synchronized void cameraOpened() {
             notify();
         }
 
