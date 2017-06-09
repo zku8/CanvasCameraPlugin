@@ -90,7 +90,7 @@ CanvasCamera.prototype.createFrame = (function(image, element) {
         for (var property in this) {
             if (this.hasOwnProperty(property)) {
                 delete this[property];
-            };
+            }
         };
     };
 
@@ -378,7 +378,7 @@ CanvasCamera.prototype.start = function(options, onError, onSuccess) {
     }
 
     this.enableRenderers();
-    cordova.exec(this.capture.bind(this), function(error) {
+    exec(this.capture.bind(this), function(error) {
         this.disableRenderers();
         if (onError && typeof onError === 'function') {
             onError(error);
@@ -388,7 +388,7 @@ CanvasCamera.prototype.start = function(options, onError, onSuccess) {
 
 CanvasCamera.prototype.stop = function(onError, onSuccess) {
     this.disableRenderers();
-    cordova.exec(function(data){
+    exec(function(data){
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
@@ -400,7 +400,7 @@ CanvasCamera.prototype.stop = function(onError, onSuccess) {
 };
 
 CanvasCamera.prototype.flashMode = function(flashMode, onError, onSuccess) {
-    cordova.exec(function(data){
+    exec(function(data){
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
@@ -413,7 +413,7 @@ CanvasCamera.prototype.flashMode = function(flashMode, onError, onSuccess) {
 
 CanvasCamera.prototype.cameraPosition = function(cameraFacing, onError, onSuccess) {
     this.disableRenderers();
-    cordova.exec(function(data){
+    exec(function(data){
         this.enableRenderers();
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
