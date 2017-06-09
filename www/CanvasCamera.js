@@ -91,7 +91,7 @@ CanvasCamera.prototype.createFrame = (function(image, element) {
             if (this.hasOwnProperty(property)) {
                 delete this[property];
             }
-        };
+        }
     };
 
     var frame = function(image, element) {
@@ -132,7 +132,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
 
             this.image.addEventListener('load', function(event) {
 
-                var frame = CanvasCamera.createFrame(this.image, this.element);
+                var frame = CanvasCameraInstance.createFrame(this.image, this.element);
 
                 this.resize().clear();
                 if (this.onBeforeDraw) {
@@ -161,7 +161,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
     };
 
     Renderer.prototype.onOrientationChange = function(){
-        if (CanvasCamera.getUIOrientation() !== this.orientation) {
+        if (CanvasCameraInstance.getUIOrientation() !== this.orientation) {
             this.invert();
         }
         this.buffer = [];
@@ -570,4 +570,6 @@ CanvasCamera.prototype.setRenderersSize = function(size) {
    return this;
 };
 
-module.exports = new CanvasCamera();
+var CanvasCameraInstance = new CanvasCamera()
+
+module.exports = CanvasCameraInstance;
