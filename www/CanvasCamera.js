@@ -198,7 +198,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
                 if (this.buffer.length) {
                     this.render(this.buffer.pop(), this.type);
                     this.buffer = [];
-                };
+                }
             }.bind(this));
         }
 
