@@ -157,7 +157,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
             window.addEventListener('orientationchange', function(event){
                 this.onOrientationChange();
             }.bind(this));
-        };
+        }
         return this;
     };
 
@@ -177,7 +177,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
     Renderer.prototype.draw = function(frame){
         if (frame) {
             this.context.drawImage(frame.image, frame.sx, frame.sy, frame.sWidth, frame.sHeight, frame.dx, frame.dy, frame.dWidth, frame.dHeight);
-        };
+        }
 
         return this;
     };
@@ -187,7 +187,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
             this.type = type;
             this.buffer.push(data);
             this.run();
-        };
+        }
 
         return this;
     };
@@ -200,7 +200,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
                     this.buffer = [];
                 };
             }.bind(this));
-        };
+        }
 
         return this;
     };
@@ -277,7 +277,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
                 }
             }
             this.size = iSize;
-        };
+        }
 
         return this;
     };
@@ -296,7 +296,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
             } else {
                 this.element.width = parseFloat(window.innerWidth * pixelRatio);
                 this.element.style.width = parseFloat(window.innerWidth) + 'px';
-            };
+            }
             if (this.size.height && !isNaN(this.size.height)) {
                 if (!this.fullscreen && parseFloat(this.size.height) <= parseFloat(window.innerHeight)) {
                     this.element.height = parseFloat(this.size.height * pixelRatio);
@@ -308,8 +308,8 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
             } else {
                 this.element.height = parseFloat(window.innerHeight * pixelRatio);
                 this.element.style.height = parseFloat(window.innerHeight) + 'px';
-            };
-        };
+            }
+        }
 
         return this;
     };
@@ -322,17 +322,18 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
             if (!this.fullscreen) {
                 if (parseFloat(size.width) >= parseFloat(window.innerWidth) && parseFloat(size.height) >= parseFloat(window.innerHeight)) {
                     this.fullscreen = true;
-                };
-            };
-          };
-        };
+                }
+            }
+          }
+        }
+
         return this;
     };
 
     Renderer.prototype.setOnBeforeDraw = function(onBeforeDraw){
         if (onBeforeDraw && typeof onBeforeDraw === 'function') {
             this.onBeforeDraw = onBeforeDraw;
-        };
+        }
 
         return this;
     };
@@ -340,7 +341,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
     Renderer.prototype.setAfterDraw = function(onAfterDraw){
         if (onAfterDraw && typeof onAfterDraw === 'function') {
             this.onAfterDraw = onAfterDraw;
-        };
+        }
 
         return this;
     };
@@ -359,15 +360,15 @@ CanvasCamera.prototype.initialize = function(fcanvas, tcanvas) {
         this.canvas.fullsize = this.createRenderer(fcanvas, this);
         if (tcanvas && tcanvas.getContext) {
             this.canvas.thumbnail = this.createRenderer(tcanvas, this);
-        };
+        }
     } else {
         if (fcanvas.fullsize && fcanvas.fullsize.getContext) {
             this.canvas.fullsize = this.createRenderer(fcanvas.fullsize, this);
             if (fcanvas.thumbnail && fcanvas.thumbnail.getContext) {
                 this.canvas.thumbnail = this.createRenderer(fcanvas.thumbnail, this);
-            };
+            }
         }
-    };
+    }
 };
 
 CanvasCamera.prototype.start = function(options, onError, onSuccess) {
@@ -435,10 +436,10 @@ CanvasCamera.prototype.capture = function(data) {
             if (data.output.images.thumbnail && data.output.images.thumbnail[this.options.use]) {
                 if (this.canvas.thumbnail) {
                     this.canvas.thumbnail.bufferize(data.output.images.thumbnail, this.options.use);
-                };
-            };
-        };
-    };
+                }
+            }
+        }
+    }
 
     if (this.onCapture && typeof this.onCapture === 'function') {
         this.onCapture(data);
@@ -451,10 +452,10 @@ CanvasCamera.prototype.enableRenderers = function() {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].disabled()) {
                     this.canvas[renderer].enable();
-                };
-            };
-        };
-    };
+                }
+            }
+        }
+    }
 };
 
 CanvasCamera.prototype.disableRenderers = function() {
@@ -463,10 +464,10 @@ CanvasCamera.prototype.disableRenderers = function() {
             if(this.canvas.hasOwnProperty(renderer)) {
                 if (this.canvas[renderer].enabled()) {
                     this.canvas[renderer].disable();
-                };
-            };
-        };
-    };
+                }
+            }
+        }
+    }
 };
 
 CanvasCamera.prototype.setRenderingPresets = function() {
@@ -477,7 +478,7 @@ CanvasCamera.prototype.setRenderingPresets = function() {
         break;
         default:
            this.options.use = 'file';
-    };
+    }
 
     if (this.options.onBeforeDraw && typeof this.options.onBeforeDraw === 'function') {
         if (this.canvas.fullsize) {
@@ -515,8 +516,8 @@ CanvasCamera.prototype.getUISize = function() {
                         size.width =  parseFloat(this.options.canvas.width);
                         size.height = parseFloat(this.options.canvas.height);
                     }
-               };
-            };
+               }
+            }
         }
 
         if (this.options.width && this.options.height) {
@@ -529,9 +530,9 @@ CanvasCamera.prototype.getUISize = function() {
                     size.width = parseFloat(this.options.width);
                     size.height = parseFloat(this.options.height);
                 }
-            };
-        };
-    };
+            }
+        }
+    }
 
     return size;
 };
@@ -549,24 +550,24 @@ CanvasCamera.prototype.getUIOrientation = function(){
 };
 
 CanvasCamera.prototype.setRenderersSize = function(size) {
-   if (size.width && size.height) {
-       if (this.canvas.fullsize) {
-            this.canvas.fullsize.setSize({
-                width: parseFloat(size.width),
-                height: parseFloat(size.height)
-            }, size.auto);
-            if (this.canvas.thumbnail) {
-                this.options.hasThumbnail = true;
-                if (!this.options.thumbnailRatio) {
-                    this.options.thumbnailRatio = 1/6;
-                };
-                this.canvas.thumbnail.setSize({
-                    width: parseFloat((parseFloat(size.width) * parseFloat(this.options.thumbnailRatio))),
-                    height: parseFloat((parseFloat(size.height) * parseFloat(this.options.thumbnailRatio)))
-                });
-            };
-       };
-   };
+  if (size.width && size.height) {
+      if (this.canvas.fullsize) {
+          this.canvas.fullsize.setSize({
+              width: parseFloat(size.width),
+              height: parseFloat(size.height)
+          }, size.auto);
+          if (this.canvas.thumbnail) {
+              this.options.hasThumbnail = true;
+              if (!this.options.thumbnailRatio) {
+                  this.options.thumbnailRatio = 1/6;
+              }
+              this.canvas.thumbnail.setSize({
+                  width: parseFloat((parseFloat(size.width) * parseFloat(this.options.thumbnailRatio))),
+                  height: parseFloat((parseFloat(size.height) * parseFloat(this.options.thumbnailRatio)))
+              });
+          }
+      }
+  }
 
    return this;
 };
