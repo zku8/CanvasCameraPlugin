@@ -104,9 +104,9 @@ CanvasCamera.prototype.createFrame = (function(image, element) {
 }());
 
 
-CanvasCamera.prototype.createRenderer = (function (element) {
+CanvasCamera.prototype.createRenderer = (function (element, parent) {
 
-    var Renderer = function (element){
+    var Renderer = function (element, parent){
         this.size = null;
         this.type = null;
         this.image = null;
@@ -118,6 +118,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
         this.available = true;
         this.fullscreen = false;
 
+        this.parent = parent || null;
         this.element = element || null;
 
         this.onAfterDraw = null;
@@ -132,7 +133,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
 
             this.image.addEventListener('load', function(event) {
 
-                var frame = CanvasCameraInstance.createFrame(this.image, this.element);
+                var frame = this.parent.createFrame(this.image, this.element);
 
                 this.resize().clear();
                 if (this.onBeforeDraw) {
@@ -161,7 +162,7 @@ CanvasCamera.prototype.createRenderer = (function (element) {
     };
 
     Renderer.prototype.onOrientationChange = function(){
-        if (CanvasCameraInstance.getUIOrientation() !== this.orientation) {
+        if (this.parent.getUIOrientation() !== this.orientation) {
             this.invert();
         }
         this.buffer = [];
@@ -344,26 +345,26 @@ CanvasCamera.prototype.createRenderer = (function (element) {
         return this;
     };
 
-    var renderer = function(element){
-        return new Renderer(element);
+    var renderer = function(element, parent){
+        return new Renderer(element, parent);
     };
 
-    return function(element){
-        return renderer(element).initialize();
+    return function(element, parent){
+        return renderer(element, parent).initialize();
     };
 }());
 
 CanvasCamera.prototype.initialize = function(fcanvas, tcanvas) {
     if(fcanvas && fcanvas.getContext) {
-        this.canvas.fullsize = this.createRenderer(fcanvas);
+        this.canvas.fullsize = this.createRenderer(fcanvas, this);
         if (tcanvas && tcanvas.getContext) {
-            this.canvas.thumbnail = this.createRenderer(tcanvas);
+            this.canvas.thumbnail = this.createRenderer(tcanvas, this);
         };
     } else {
         if (fcanvas.fullsize && fcanvas.fullsize.getContext) {
-            this.canvas.fullsize = this.createRenderer(fcanvas.fullsize);
+            this.canvas.fullsize = this.createRenderer(fcanvas.fullsize, this);
             if (fcanvas.thumbnail && fcanvas.thumbnail.getContext) {
-                this.canvas.thumbnail = this.createRenderer(fcanvas.thumbnail);
+                this.canvas.thumbnail = this.createRenderer(fcanvas.thumbnail, this);
             };
         }
     };
@@ -570,6 +571,4 @@ CanvasCamera.prototype.setRenderersSize = function(size) {
    return this;
 };
 
-var CanvasCameraInstance = new CanvasCamera()
-
-module.exports = CanvasCameraInstance;
+module.exports = new CanvasCamera();
