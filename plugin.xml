@@ -57,7 +57,6 @@
 
       <config-file parent="/manifest" target="AndroidManifest.xml">
         <uses-feature android:name="android.hardware.camera"/>
-        <uses-feature android:name="android.hardware.camera.setParameters" />
 
         <uses-permission android:name="android.permission.CAMERA" />
         <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
