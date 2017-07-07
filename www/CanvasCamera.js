@@ -338,7 +338,7 @@ CanvasCamera.prototype.createRenderer = (function (element, parent) {
         return this;
     };
 
-    Renderer.prototype.setAfterDraw = function(onAfterDraw){
+    Renderer.prototype.setOnAfterDraw = function(onAfterDraw){
         if (onAfterDraw && typeof onAfterDraw === 'function') {
             this.onAfterDraw = onAfterDraw;
         }
