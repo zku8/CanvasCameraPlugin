@@ -72,18 +72,18 @@ var options = {
 };
 window.plugin.CanvasCamera.start(options);
 ```
-### `setFlashMode`
+### `flashMode`
 Set flash mode for camera.<br>
 
 ```javascript
-window.plugin.CanvasCamera.setFlashMode(true);
+window.plugin.CanvasCamera.flashMode(true);
 ```
 
-### `setCameraPosition`
+### `cameraPosition`
 Change input camera to 'front' or 'back' camera.
 
 ```javascript
-window.plugin.CanvasCamera.setCameraPosition('front');
+window.plugin.CanvasCamera.cameraPosition('front');
 ```
 
 ### Options
