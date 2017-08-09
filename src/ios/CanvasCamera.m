@@ -291,6 +291,7 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
                 [self.captureSession addInput:self.captureDeviceInput];
                 if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][startCamera] Capture device input added.");
             } else {
+                [self.captureSession commitConfiguration];
                 if (LOGGING) NSLog(@"[ERROR][CanvasCamera][startCamera] Could not add capture device input");
                 [self stopCamera];
                 return NO;
@@ -311,6 +312,7 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
                 [self.captureSession addOutput:self.captureVideoDataOutput];
                 if (LOGGING) NSLog(@"[DEBUG][CanvasCamera][startCamera] Capture video data output added.");
             } else {
+                [self.captureSession commitConfiguration];
                 if (LOGGING) NSLog(@"[ERROR][CanvasCamera][startCamera] Could not add capture video data output.");
                 [self stopCamera];
                 return NO;
