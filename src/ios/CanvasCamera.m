@@ -1031,8 +1031,8 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
     return nil;
 }
 
-- (UIImage *)resizedUIImage:(UIImage *)uiImage ratio:(double)ratio {
-    if (ratio == 0) {
+- (UIImage *)resizedUIImage:(UIImage *)uiImage ratio:(CGFloat)ratio {
+    if (ratio <= 0) {
         ratio = 1;
     }
 
@@ -1051,6 +1051,8 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
 }
 
 - (UIImage *)resizedUIImage:(UIImage *)uiImage toSize:(CGSize)size {
+    size = [self calculateAspectRatio:uiImage.size targetSize:size];
+
     UIGraphicsBeginImageContext(size);
 
     [uiImage drawInRect:CGRectMake(0, 0, size.width, size.height)];
@@ -1059,5 +1061,38 @@ static NSString *const CCLensOrientationKey  = @"cameraFacing";
     UIGraphicsEndImageContext();
     
     return resizedUIImage;
+}
+
+- (CGSize)calculateAspectRatio:(CGSize)origSize targetSize:(CGSize)targetSize {
+    CGSize newSize = CGSizeMake(targetSize.width, targetSize.height);
+
+    if (newSize.width <= 0 && newSize.height <= 0) {
+        // If no new width or height were specified return the original bitmap
+        newSize.width = origSize.width;
+        newSize.height = origSize.height;
+    } else if (newSize.width > 0 && newSize.height <= 0) {
+        // Only the width was specified
+        newSize.height = (CGFloat) ((newSize.width / origSize.width) * origSize.height);
+    } else if (newSize.width <= 0 && newSize.height > 0) {
+        // only the height was specified
+        newSize.width = (CGFloat) ((newSize.height / origSize.height) * origSize.width);
+    } else {
+        // If the user specified both a positive width and height
+        // (potentially different aspect ratio) then the width or height is
+        // scaled so that the image fits while maintaining aspect ratio.
+        // Alternatively, the specified width and height could have been
+        // kept and Bitmap.SCALE_TO_FIT specified when scaling, but this
+        // would result in whitespace in the new image.
+        CGFloat newRatio = (CGFloat) (newSize.width /  newSize.height);
+        CGFloat origRatio = (CGFloat) (origSize.width / origSize.height);
+
+        if (origRatio > newRatio) {
+            newSize.height = (CGFloat) ((newSize.width * origSize.height) / origSize.width);
+        } else if (origRatio < newRatio) {
+            newSize.width = (CGFloat) ((newSize.height * origSize.width) / origSize.height);
+        }
+    }
+
+    return newSize;
 }
 @end
