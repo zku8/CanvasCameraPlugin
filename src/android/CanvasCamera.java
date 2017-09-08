@@ -55,7 +55,7 @@ public class CanvasCamera extends CordovaPlugin {
     private final static String K_FLASH_MODE_KEY = "flashMode";
     private final static String K_HAS_THUMBNAIL_KEY = "hasThumbnail";
     private final static String K_THUMBNAIL_RATIO_KEY = "thumbnailRatio";
-    private final static String K_LENS_ORIENTATION_KEY = "cameraPosition";
+    private final static String K_LENS_ORIENTATION_KEY = "cameraFacing";
 
     private static final int SEC_START_CAPTURE = 0;
     private static final int SEC_STOP_CAPTURE = 1;

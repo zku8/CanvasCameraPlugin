@@ -472,7 +472,7 @@ CanvasCamera.prototype.disableRenderers = function() {
 
 CanvasCamera.prototype.setRenderingPresets = function() {
 
-    switch(this.options.use){
+    switch (this.options.use) {
         case 'data':
         case 'file':
         break;
@@ -537,7 +537,7 @@ CanvasCamera.prototype.getUISize = function() {
     return size;
 };
 
-CanvasCamera.prototype.getUIOrientation = function(){
+CanvasCamera.prototype.getUIOrientation = function() {
     if (isNaN(window.orientation)) {
         return 'landscape';
     } else {
