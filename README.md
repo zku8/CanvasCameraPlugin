@@ -35,7 +35,18 @@ Through the [Command-line Interface][CLI]:
 cordova plugin remove com.virtuoworks.cordova-plugin-canvascamera
 ```
 
-## Using the plugin
+## TypeScript/Angular 2 support
+The CanvasCamera plugin type definition has been added to the DefinitelyTyped repository (see commit [here](https://github.com/DefinitelyTyped/DefinitelyTyped/commit/7f7f502db804112161ef06e712275591d8c4a835)) thanks to a benevolent [contributor](https://github.com/VirtuoWorks/CanvasCameraPlugin/issues/8).
+
+If you wish to install the type definition file :
+
+```bash
+npm install --save @types/cordova-plugin-canvascamera
+```
+
+You can check this [NPM](https://www.npmjs.com/package/@types/cordova-plugin-canvascamera) page for more informations about this type definition.
+
+## Using the plugin (JavaScript)
 The plugin creates the object ```window.plugin.CanvasCamera``` with the following methods:
 
 ### Plugin initialization
