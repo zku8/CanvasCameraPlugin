@@ -72,6 +72,7 @@
       </config-file>
 
       <source-file src="src/android/CanvasCamera.java" target-dir="src/com/virtuoworks/cordova/plugin/canvascamera" />
+      <source-file src="src/android/CanvasCameraInterface.java" target-dir="src/com/virtuoworks/cordova/plugin/canvascamera" />
 
     </platform>
 

@@ -26,332 +26,396 @@
 *    cameraFacing: 'front'
 *  }
 **/
+'use strict';
 
 var exec = require('cordova/exec');
 
 window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
 
-var CanvasCamera = function(){
+var CanvasCamera = function() {
     this.canvas = {};
     this.options = {};
     this.onCapture = null;
+    this.nativeClass = 'CanvasCamera';
 };
 
-CanvasCamera.prototype.createFrame = (function(image, element) {
+CanvasCamera.dispatch = function(eventName, that, data) {
+    var event = new CustomEvent(eventName, {
+        detail: {
+            data: data,
+            that: that
+        }
+    });
+    window.dispatchEvent(event);
+};
 
-    var Frame = function(image, element) {
-        this.sx = 0;
-        this.sy = 0;
-        this.sWidth = 0;
-        this.sHeight = 0;
+CanvasCamera.prototype.beforeFrameRendering = function(callback) {
+    window.addEventListener('beforeframerendering', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+CanvasCamera.prototype.afterFrameRendering = function(callback) {
+    window.addEventListener('afterframerendering', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+CanvasCamera.prototype.beforeFrameInitialization = function(callback) {
+    window.addEventListener('beforeframeinitialization', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+CanvasCamera.prototype.afterFrameInitialization = function(callback) {
+    window.addEventListener('afterframeinitialization', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+CanvasCamera.prototype.beforeRenderingPresets = function(callback) {
+    window.addEventListener('beforerenderingpresets', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+CanvasCamera.prototype.afterRenderingPresets = function(callback) {
+    window.addEventListener('afterrenderingpresets', function(e){
+        callback.call(e.detail.that, e.detail.data, e);
+    }.bind(this));
+};
+
+// Defining the Frame constructor
+CanvasCamera.Frame = function(image, element, renderer) {
+   this.sx = 0;
+   this.sy = 0;
+   this.sWidth = 0;
+   this.sHeight = 0;
+   this.dx = 0;
+   this.dy = 0;
+   this.dWidth = 0;
+   this.dHeight = 0;
+
+   this.image = image || null;
+   this.element = element || null;
+   this.renderer = renderer || null;
+};
+
+CanvasCamera.Frame.prototype.initialize = function() {
+    if (this.image && this.element) {
+        CanvasCamera.dispatch('beforeframeinitialization', this, {});
+        // The X coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
+        this.sx = 0; // (parseFloat(this.element.width) / 2) - (parseFloat(this.image.width) / 2);
+        // The Y coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
+        this.sy = 0; // (parseFloat(this.element.height) / 2) - (parseFloat(this.image.height) / 2);
+        // The width of the sub-rectangle of the source image to draw into the destination context. If not specified, the entire rectangle from the coordinates specified by sx and sy to the bottom-right corner of the image is used.
+        this.sWidth = parseFloat(this.image.width);
+        // The height of the sub-rectangle of the source image to draw into the destination context.
+        this.sHeight = parseFloat(this.image.height);
+        // The X coordinate in the destination canvas at which to place the top-left corner of the source image.
         this.dx = 0;
+        // The Y coordinate in the destination canvas at which to place the top-left corner of the source image.
         this.dy = 0;
-        this.dWidth = 0;
-        this.dHeight = 0;
+        // The width to draw the image in the destination canvas. This allows scaling of the drawn image. If not specified, the image is not scaled in width when drawn.
+        this.dWidth = parseFloat(this.element.width);
+        // The height to draw the image in the destination canvas. This allows scaling of the drawn image. If not specified, the image is not scaled in height when drawn.
+        this.dHeight = parseFloat(this.element.height);
 
-        this.image = image || null;
-        this.element = element || null;
-    };
+        var hRatio = this.dWidth / this.sWidth;
+        var vRatio = this.dHeight / this.sHeight;
+        this.ratio = Math.max(hRatio, vRatio);
 
-    Frame.prototype.initialize = function(){
-        if (this.image && this.element) {
-            // The X coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
-            this.sx = 0; //(parseFloat(this.element.width) / 2) - (parseFloat(this.image.width) / 2);
-            // The Y coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
-            this.sy = 0; //(parseFloat(this.element.height) / 2) - (parseFloat(this.image.height) / 2);
-            // The width of the sub-rectangle of the source image to draw into the destination context. If not specified, the entire rectangle from the coordinates specified by sx and sy to the bottom-right corner of the image is used.
-            this.sWidth = parseFloat(this.image.width);
-            // The height of the sub-rectangle of the source image to draw into the destination context.
-            this.sHeight = parseFloat(this.image.height);
-            // The X coordinate in the destination canvas at which to place the top-left corner of the source image.
-            this.dx = 0;
-            // The Y coordinate in the destination canvas at which to place the top-left corner of the source image.
-            this.dy = 0;
-            // The width to draw the image in the destination canvas. This allows scaling of the drawn image. If not specified, the image is not scaled in width when drawn.
-            this.dWidth = parseFloat(this.element.width);
-            // The height to draw the image in the destination canvas. This allows scaling of the drawn image. If not specified, the image is not scaled in height when drawn.
-            this.dHeight = parseFloat(this.element.height);
+        this.dx = (this.dWidth - this.sWidth * this.ratio) / 2;
+        this.dy = (this.dHeight - this.sHeight * this.ratio) / 2;
 
-            var hRatio = this.dWidth / this.sWidth ;
-            var vRatio = this.dHeight / this.sHeight;
-            this.ratio  = Math.max(hRatio, vRatio);
+        this.dWidth = this.sWidth * this.ratio;
+        this.dHeight = this.sHeight * this.ratio;
 
-            this.dx = (this.dWidth - this.sWidth * this.ratio) / 2;
-            this.dy = (this.dHeight - this.sHeight * this.ratio) / 2;
+        CanvasCamera.dispatch('afterframeinitialization', this, {});
+    }
 
-            this.dWidth = this.sWidth * this.ratio;
-            this.dHeight = this.sHeight * this.ratio;
+    return this;
+};
+
+CanvasCamera.Frame.prototype.recycle = function() {
+    for (var property in this) {
+        if (this.hasOwnProperty(property)) {
+            delete this[property];
         }
+    }
+};
+// End of the Frame constructor definition
 
-        return this;
+CanvasCamera.prototype.createFrame = (function(image, element, renderer) {
+    var frame = function(image, element, renderer) {
+        return new CanvasCamera.Frame(image, element, renderer);
     };
 
-    Frame.prototype.recycle = function(){
-        for (var property in this) {
-            if (this.hasOwnProperty(property)) {
-                delete this[property];
-            }
-        }
-    };
-
-    var frame = function(image, element) {
-        return new Frame(image, element);
-    };
-
-    return function(image, element){
-        return frame(image, element).initialize();
+    return function(image, element, renderer) {
+        return frame(image, element, renderer).initialize();
     };
 }());
 
+// Defining the Renderer constructor
+CanvasCamera.Renderer = function(element, canvascamera) {
+      this.data = null;
+      this.size = null;
+      this.image = null;
+      this.context = null;
+      this.orientation = null;
 
-CanvasCamera.prototype.createRenderer = (function (element, parent) {
+      this.buffer = [];
 
-    var Renderer = function (element, parent){
-        this.size = null;
-        this.type = null;
-        this.image = null;
-        this.context = null;
-        this.orientation = null;
+      this.available = true;
+      this.fullscreen = false;
 
-        this.buffer = [];
+      this.element = element || null;
+      this.canvascamera = canvascamera || null;
 
-        this.available = true;
-        this.fullscreen = false;
+      this.onAfterDraw = null;
+      this.onBeforeDraw = null;
+};
 
-        this.parent = parent || null;
-        this.element = element || null;
+CanvasCamera.Renderer.prototype.initialize = function() {
+    if (this.element) {
+        this.context = this.element.getContext('2d');
 
-        this.onAfterDraw = null;
-        this.onBeforeDraw = null;
-    };
+        this.image = new Image();
 
-    Renderer.prototype.initialize = function(){
-        if (this.element) {
-            this.context = this.element.getContext('2d');
+        this.image.addEventListener('load', function(event) {
 
-            this.image = new Image();
+            var frame = this.canvascamera.createFrame(this.image, this.element , this);
 
-            this.image.addEventListener('load', function(event) {
+            this.resize().clear();
+            if (this.onBeforeDraw) {
+                this.onBeforeDraw(frame);
+            }
+            this.draw(frame);
+            if (this.onAfterDraw) {
+                this.onAfterDraw(frame);
+            }
 
-                var frame = this.parent.createFrame(this.image, this.element);
+            frame.recycle();
+            frame = null;
 
-                this.resize().clear();
-                if (this.onBeforeDraw) {
-                    this.onBeforeDraw(frame);
-                }
-                this.draw(frame);
-                if (this.onAfterDraw) {
-                    this.onAfterDraw(frame);
-                }
+            this.enable();
+        }.bind(this));
 
-                frame.recycle();
-                frame = null;
+        this.image.addEventListener('error', function(event) {
+            this.clear().enable();
+        }.bind(this));
 
-                this.enable();
-            }.bind(this));
+        window.addEventListener('orientationchange', function(event) {
+            this.onOrientationChange();
+        }.bind(this));
+    }
+    return this;
+};
 
-            this.image.addEventListener('error', function(event) {
-                this.clear().enable();
-            }.bind(this));
+CanvasCamera.Renderer.prototype.onOrientationChange = function() {
+    if (this.canvascamera.getUIOrientation() !== this.orientation) {
+        this.invert();
+    }
+    this.buffer = [];
+};
 
-            window.addEventListener('orientationchange', function(event){
-                this.onOrientationChange();
-            }.bind(this));
-        }
-        return this;
-    };
+CanvasCamera.Renderer.prototype.clear = function() {
+    this.context.clearRect(0, 0, this.element.width, this.element.height);
 
-    Renderer.prototype.onOrientationChange = function(){
-        if (this.parent.getUIOrientation() !== this.orientation) {
-            this.invert();
-        }
-        this.buffer = [];
-    };
+    return this;
+};
 
-    Renderer.prototype.clear = function(){
-        this.context.clearRect(0, 0, this.element.width, this.element.height);
+CanvasCamera.Renderer.prototype.draw = function(frame) {
 
-        return this;
-    };
+    CanvasCamera.dispatch('beforeframerendering', this, {
+        frame: frame
+    });
 
-    Renderer.prototype.draw = function(frame){
-        if (frame) {
-            this.context.drawImage(frame.image, frame.sx, frame.sy, frame.sWidth, frame.sHeight, frame.dx, frame.dy, frame.dWidth, frame.dHeight);
-        }
+    if (frame) {
+        this.context.drawImage(frame.image, frame.sx, frame.sy, frame.sWidth, frame.sHeight, frame.dx, frame.dy, frame.dWidth, frame.dHeight);
+    }
 
-        return this;
-    };
+    CanvasCamera.dispatch('afterframerendering', this, {
+        frame: frame
+    });
 
-    Renderer.prototype.bufferize = function(data, type){
-        if (this.enabled()) {
-            this.type = type;
-            this.buffer.push(data);
-            this.run();
-        }
+    return this;
+};
 
-        return this;
-    };
+CanvasCamera.Renderer.prototype.bufferize = function(data) {
+    if (this.enabled()) {
+        this.buffer.push(data);
+        this.run();
+    }
 
-    Renderer.prototype.run = function(){
-        if (this.enabled()) {
-            window.requestAnimationFrame(function(timestamp) {
-                if (this.buffer.length) {
-                    this.render(this.buffer.pop(), this.type);
-                    this.buffer = [];
-                }
-            }.bind(this));
-        }
+    return this;
+};
 
-        return this;
-    };
+CanvasCamera.Renderer.prototype.run = function() {
+    if (this.enabled()) {
+        window.requestAnimationFrame(function(timestamp) {
+            if (this.buffer.length) {
+                this.render(this.buffer.pop());
+                this.buffer = [];
+            }
+        }.bind(this));
+    }
 
-    Renderer.prototype.render = function(data, type){
-        if (this.enabled()) {
-            if (data && data[type]) {
+    return this;
+};
+
+CanvasCamera.Renderer.prototype.render = function(data) {
+    if (this.enabled()) {
+        if (this.canvascamera && this.canvascamera.options && this.canvascamera.options.use) {
+            if (data && data[this.canvascamera.options.use]) {
+                this.data = data;
                 if (data.hasOwnProperty('orientation') && data.orientation) {
                     this.orientation = data.orientation;
                 }
 
                 if (this.image) {
                     // type can be 'data' or 'file'
-                    switch(type){
+                    switch(this.canvascamera.options.use) {
                         case 'file':
                             // add a random seed to prevent browser caching.
-                            this.image.src = data[type] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
+                            this.image.src = data[this.canvascamera.options.use] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
                         break;
                         default:
-                             this.image.src = data[type];
+                             this.image.src = data[this.canvascamera.options.use];
                     }
                 }
 
                 this.disable();
             }
         }
+    }
 
-        return this;
-    };
+    return this;
+};
 
-    Renderer.prototype.enable = function(){
-        this.available = true;
+CanvasCamera.Renderer.prototype.enable = function() {
+    this.available = true;
 
-        return this;
-    };
+    return this;
+};
 
-    Renderer.prototype.disable = function(){
-        this.available = false;
+CanvasCamera.Renderer.prototype.disable = function() {
+    this.available = false;
 
-        return this;
-    };
+    return this;
+};
 
-    Renderer.prototype.enabled = function(){
-        return this.available;
-    };
+CanvasCamera.Renderer.prototype.enabled = function() {
+    return this.available;
+};
 
-    Renderer.prototype.disabled = function(){
-        return !this.available;
-    };
+CanvasCamera.Renderer.prototype.disabled = function() {
+    return !this.available;
+};
 
-    Renderer.prototype.invert = function(){
-        if (this.size) {
-            var iSize = {};
-            if (this.size.width && !isNaN(this.size.width)) {
-                if (this.fullscreen) {
+CanvasCamera.Renderer.prototype.invert = function() {
+    if (this.size) {
+        var iSize = {};
+        if (this.size.width && !isNaN(this.size.width)) {
+            if (this.fullscreen) {
+                iSize.width = parseFloat(window.innerHeight);
+            } else {
+                if (parseFloat(this.size.height) <= parseFloat(window.innerHeight)) {
+                    iSize.width = parseFloat(this.size.height);
+                } else {
                     iSize.width = parseFloat(window.innerHeight);
-                } else {
-                    if (parseFloat(this.size.height) <= parseFloat(window.innerHeight)) {
-                        iSize.width = parseFloat(this.size.height);
-                    } else {
-                        iSize.width = parseFloat(window.innerHeight);
-                    }
                 }
             }
-            if (this.size.height && !isNaN(this.size.height)) {
-                if (this.fullscreen) {
-                    iSize.height = parseFloat(window.innerWidth);
-                } else {
-                    if (parseFloat(this.size.width) <= parseFloat(window.innerWidth)) {
-                        iSize.height = parseFloat(this.size.width);
-                    } else {
-                        iSize.height = parseFloat(window.innerWidth);
-                    }
-                }
-            }
-            this.size = iSize;
         }
-
-        return this;
-    };
-
-    Renderer.prototype.resize = function(){
-        if (this.size) {
-            var pixelRatio = window.devicePixelRatio || 1;
-            if (this.size.width && !isNaN(this.size.width)) {
-                if (!this.fullscreen && parseFloat(this.size.width) <= parseFloat(window.innerWidth)) {
-                    this.element.width = parseFloat(this.size.width * pixelRatio);
-                    this.element.style.width = parseFloat(this.size.width) + 'px';
+        if (this.size.height && !isNaN(this.size.height)) {
+            if (this.fullscreen) {
+                iSize.height = parseFloat(window.innerWidth);
+            } else {
+                if (parseFloat(this.size.width) <= parseFloat(window.innerWidth)) {
+                    iSize.height = parseFloat(this.size.width);
                 } else {
-                    this.element.width = parseFloat(window.innerWidth * pixelRatio);
-                    this.element.style.width = parseFloat(window.innerWidth) + 'px';
+                    iSize.height = parseFloat(window.innerWidth);
                 }
+            }
+        }
+        this.size = iSize;
+    }
+
+    return this;
+};
+
+CanvasCamera.Renderer.prototype.resize = function() {
+    if (this.size) {
+        var pixelRatio = window.devicePixelRatio || 1;
+        if (this.size.width && !isNaN(this.size.width)) {
+            if (!this.fullscreen && parseFloat(this.size.width) <= parseFloat(window.innerWidth)) {
+                this.element.width = parseFloat(this.size.width * pixelRatio);
+                this.element.style.width = parseFloat(this.size.width) + 'px';
             } else {
                 this.element.width = parseFloat(window.innerWidth * pixelRatio);
                 this.element.style.width = parseFloat(window.innerWidth) + 'px';
             }
-            if (this.size.height && !isNaN(this.size.height)) {
-                if (!this.fullscreen && parseFloat(this.size.height) <= parseFloat(window.innerHeight)) {
-                    this.element.height = parseFloat(this.size.height * pixelRatio);
-                    this.element.style.height = parseFloat(this.size.height) + 'px';
-                } else {
-                    this.element.height = parseFloat(window.innerHeight * pixelRatio);
-                    this.element.style.height = parseFloat(window.innerHeight) + 'px';
-                }
+        } else {
+            this.element.width = parseFloat(window.innerWidth * pixelRatio);
+            this.element.style.width = parseFloat(window.innerWidth) + 'px';
+        }
+        if (this.size.height && !isNaN(this.size.height)) {
+            if (!this.fullscreen && parseFloat(this.size.height) <= parseFloat(window.innerHeight)) {
+                this.element.height = parseFloat(this.size.height * pixelRatio);
+                this.element.style.height = parseFloat(this.size.height) + 'px';
             } else {
                 this.element.height = parseFloat(window.innerHeight * pixelRatio);
                 this.element.style.height = parseFloat(window.innerHeight) + 'px';
             }
+        } else {
+            this.element.height = parseFloat(window.innerHeight * pixelRatio);
+            this.element.style.height = parseFloat(window.innerHeight) + 'px';
         }
+    }
 
-        return this;
-    };
+    return this;
+};
 
-    Renderer.prototype.setSize = function(size, auto){
-        this.fullscreen = !!auto || false;
-        if (size && size.width && size.height) {
-          if (!isNaN(parseFloat(size.width)) && !isNaN(parseFloat(size.height))) {
-            this.size = size;
-            if (!this.fullscreen) {
-                if (parseFloat(size.width) >= parseFloat(window.innerWidth) && parseFloat(size.height) >= parseFloat(window.innerHeight)) {
-                    this.fullscreen = true;
-                }
+CanvasCamera.Renderer.prototype.setSize = function(size, auto) {
+    this.fullscreen = !!auto || false;
+    if (size && size.width && size.height) {
+      if (!isNaN(parseFloat(size.width)) && !isNaN(parseFloat(size.height))) {
+        this.size = size;
+        if (!this.fullscreen) {
+            if (parseFloat(size.width) >= parseFloat(window.innerWidth) && parseFloat(size.height) >= parseFloat(window.innerHeight)) {
+                this.fullscreen = true;
             }
-          }
         }
+      }
+    }
 
-        return this;
+    return this;
+};
+
+CanvasCamera.Renderer.prototype.setOnBeforeDraw = function(onBeforeDraw) {
+    if (onBeforeDraw && typeof onBeforeDraw === 'function') {
+        this.onBeforeDraw = onBeforeDraw;
+    }
+
+    return this;
+};
+
+CanvasCamera.Renderer.prototype.setOnAfterDraw = function(onAfterDraw) {
+    if (onAfterDraw && typeof onAfterDraw === 'function') {
+        this.onAfterDraw = onAfterDraw;
+    }
+
+    return this;
+};
+// End of the Renderer constructor definition
+
+CanvasCamera.prototype.createRenderer = (function (element, canvascamera) {
+    var renderer = function(element, canvascamera) {
+        return new CanvasCamera.Renderer(element, canvascamera);
     };
 
-    Renderer.prototype.setOnBeforeDraw = function(onBeforeDraw){
-        if (onBeforeDraw && typeof onBeforeDraw === 'function') {
-            this.onBeforeDraw = onBeforeDraw;
-        }
-
-        return this;
-    };
-
-    Renderer.prototype.setOnAfterDraw = function(onAfterDraw){
-        if (onAfterDraw && typeof onAfterDraw === 'function') {
-            this.onAfterDraw = onAfterDraw;
-        }
-
-        return this;
-    };
-
-    var renderer = function(element, parent){
-        return new Renderer(element, parent);
-    };
-
-    return function(element, parent){
-        return renderer(element, parent).initialize();
+    return function(element, canvascamera) {
+        return renderer(element, canvascamera).initialize();
     };
 }());
 
@@ -385,12 +449,12 @@ CanvasCamera.prototype.start = function(options, onError, onSuccess) {
         if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), 'CanvasCamera', 'startCapture', [this.options]);
+    }.bind(this), this.nativeClass, 'startCapture', [this.options]);
 };
 
 CanvasCamera.prototype.stop = function(onError, onSuccess) {
     this.disableRenderers();
-    exec(function(data){
+    exec(function(data) {
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
@@ -398,11 +462,11 @@ CanvasCamera.prototype.stop = function(onError, onSuccess) {
         if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), 'CanvasCamera', 'stopCapture', []);
+    }.bind(this), this.nativeClass, 'stopCapture', []);
 };
 
 CanvasCamera.prototype.flashMode = function(flashMode, onError, onSuccess) {
-    exec(function(data){
+    exec(function(data) {
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
         }
@@ -410,12 +474,12 @@ CanvasCamera.prototype.flashMode = function(flashMode, onError, onSuccess) {
         if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), 'CanvasCamera', 'flashMode', [flashMode]);
+    }.bind(this), this.nativeClass, 'flashMode', [flashMode]);
 };
 
 CanvasCamera.prototype.cameraPosition = function(cameraFacing, onError, onSuccess) {
     this.disableRenderers();
-    exec(function(data){
+    exec(function(data) {
         this.enableRenderers();
         if (onSuccess && typeof onSuccess === 'function') {
             onSuccess(data);
@@ -424,18 +488,18 @@ CanvasCamera.prototype.cameraPosition = function(cameraFacing, onError, onSucces
         if (onError && typeof onError === 'function') {
             onError(error);
         }
-    }.bind(this), 'CanvasCamera', 'cameraPosition', [cameraFacing]);
+    }.bind(this), this.nativeClass, 'cameraPosition', [cameraFacing]);
 };
 
 CanvasCamera.prototype.capture = function(data) {
     if (data && data.output && data.output.images) {
         if (data.output.images.fullsize && data.output.images.fullsize[this.options.use]) {
             if (this.canvas.fullsize) {
-                this.canvas.fullsize.bufferize(data.output.images.fullsize, this.options.use);
+                this.canvas.fullsize.bufferize(data.output.images.fullsize);
             }
             if (data.output.images.thumbnail && data.output.images.thumbnail[this.options.use]) {
                 if (this.canvas.thumbnail) {
-                    this.canvas.thumbnail.bufferize(data.output.images.thumbnail, this.options.use);
+                    this.canvas.thumbnail.bufferize(data.output.images.thumbnail);
                 }
             }
         }
@@ -472,6 +536,8 @@ CanvasCamera.prototype.disableRenderers = function() {
 
 CanvasCamera.prototype.setRenderingPresets = function() {
 
+    CanvasCamera.dispatch('beforerenderingpresets', this, {});
+
     switch (this.options.use) {
         case 'data':
         case 'file':
@@ -494,6 +560,8 @@ CanvasCamera.prototype.setRenderingPresets = function() {
 
     var size = this.getUISize();
     this.setRenderersSize(size);
+
+    CanvasCamera.dispatch('afterrenderingpresets', this, {});
 
     return this;
 };

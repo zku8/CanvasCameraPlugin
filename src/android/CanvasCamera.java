@@ -42,20 +42,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class CanvasCamera extends CordovaPlugin {
-    private final static String TAG = "CanvasCamera";
-    private final static boolean LOGGING = false; //false to disable logging
+public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface {
+    private static final String TAG = "CanvasCamera";
+    private static final boolean LOGGING = false; //false to disable logging
 
-    private final static String K_USE_KEY = "use";
-    private final static String K_FPS_KEY = "fps";
-    private final static String K_WIDTH_KEY = "width";
-    private final static String K_HEIGHT_KEY = "height";
-    private final static String K_CANVAS_KEY = "canvas";
-    private final static String K_CAPTURE_KEY = "capture";
-    private final static String K_FLASH_MODE_KEY = "flashMode";
-    private final static String K_HAS_THUMBNAIL_KEY = "hasThumbnail";
-    private final static String K_THUMBNAIL_RATIO_KEY = "thumbnailRatio";
-    private final static String K_LENS_ORIENTATION_KEY = "cameraFacing";
+    protected final String K_USE_KEY = "use";
+    protected final String K_FPS_KEY = "fps";
+    protected final String K_WIDTH_KEY = "width";
+    protected final String K_HEIGHT_KEY = "height";
+    protected final String K_CANVAS_KEY = "canvas";
+    protected final String K_CAPTURE_KEY = "capture";
+    protected final String K_FLASH_MODE_KEY = "flashMode";
+    protected final String K_HAS_THUMBNAIL_KEY = "hasThumbnail";
+    protected final String K_THUMBNAIL_RATIO_KEY = "thumbnailRatio";
+    protected final String K_LENS_ORIENTATION_KEY = "cameraFacing";
 
     private static final int SEC_START_CAPTURE = 0;
     private static final int SEC_STOP_CAPTURE = 1;
@@ -65,18 +65,18 @@ public class CanvasCamera extends CordovaPlugin {
     private final static String[] FILENAMES = {"fullsize", "thumbnail"};
     private final static String[] PERMISSIONS = {Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE};
 
-    private int mFps;
-    private int mWidth;
-    private int mHeight;
-    private String mUse;
-    private int mCameraFacing;
-    private String mFlashMode;
-    private int mCanvasHeight;
-    private int mCanvasWidth;
-    private int mCaptureHeight;
-    private int mCaptureWidth;
-    private boolean mHasThumbnail;
-    private double mThumbnailRatio;
+    protected int mFps;
+    protected int mWidth;
+    protected int mHeight;
+    protected String mUse;
+    protected int mCameraFacing;
+    protected String mFlashMode;
+    protected int mCanvasHeight;
+    protected int mCanvasWidth;
+    protected int mCaptureHeight;
+    protected int mCaptureWidth;
+    protected boolean mHasThumbnail;
+    protected double mThumbnailRatio;
 
     private JSONArray mArgs;
     private CallbackContext mCurrentCallbackContext;
@@ -99,6 +99,15 @@ public class CanvasCamera extends CordovaPlugin {
     private TextureView mTextureView = null;
     private CameraHandlerThread mThread = null;
 
+    public void setDefaultOptions() {}
+
+    public void parseAdditionalOptions(JSONObject options) throws Exception {
+
+    }
+
+    public void addPluginResultDataOutput(byte[] imageRawJpegData, JSONObject pluginResultDataOutput) {
+
+    }
 
     private final Camera.PreviewCallback mCameraPreviewCallback = new Camera.PreviewCallback() {
         @Override
@@ -140,6 +149,8 @@ public class CanvasCamera extends CordovaPlugin {
                                         Log.e(TAG, "Cannot put data.output.images.fullsize.path into JSON result : " + e.getMessage());
                                 }
                             }
+
+                            addPluginResultDataOutput(fullsizeData, fullsize);
                         }
 
                         if (fullsize.length() > 0) {
@@ -529,7 +540,7 @@ public class CanvasCamera extends CordovaPlugin {
         mStartCaptureCallbackContext = callbackContext;
 
         // init parameters - default values
-        setDefaultOptions();
+        setDefaults();
 
         // parse options
         try {
@@ -621,7 +632,7 @@ public class CanvasCamera extends CordovaPlugin {
         }
     }
 
-    private void setDefaultOptions() {
+    public void setDefaults() {
         mFps = 30;
         mWidth = 352;
         mHeight = 288;
@@ -632,6 +643,7 @@ public class CanvasCamera extends CordovaPlugin {
         mHasThumbnail = false;
         mThumbnailRatio = 1 / 6;
         mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK;
+        setDefaultOptions();
     }
 
     private boolean initPreviewSurface() {
@@ -1200,6 +1212,9 @@ public class CanvasCamera extends CordovaPlugin {
                 mCaptureHeight = capture.getInt(K_HEIGHT_KEY);
             }
         }
+
+        // parsing additional options
+        parseAdditionalOptions(options);
     }
 
     private JSONObject getPluginResultMessage(String message) {
