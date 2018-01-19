@@ -157,7 +157,7 @@ CanvasCamera.prototype.createFrame = (function(image, element, renderer) {
 }());
 
 // Defining the Renderer constructor
-CanvasCamera.Renderer = function(element, canvascamera) {
+CanvasCamera.Renderer = function(element, canvasCamera) {
       this.data = null;
       this.size = null;
       this.image = null;
@@ -170,7 +170,7 @@ CanvasCamera.Renderer = function(element, canvascamera) {
       this.fullscreen = false;
 
       this.element = element || null;
-      this.canvascamera = canvascamera || null;
+      this.canvasCamera = canvasCamera || null;
 
       this.onAfterDraw = null;
       this.onBeforeDraw = null;
@@ -184,7 +184,7 @@ CanvasCamera.Renderer.prototype.initialize = function() {
 
         this.image.addEventListener('load', function(event) {
 
-            var frame = this.canvascamera.createFrame(this.image, this.element , this);
+            var frame = this.canvasCamera.createFrame(this.image, this.element , this);
 
             this.resize().clear();
             if (this.onBeforeDraw) {
@@ -213,7 +213,7 @@ CanvasCamera.Renderer.prototype.initialize = function() {
 };
 
 CanvasCamera.Renderer.prototype.onOrientationChange = function() {
-    if (this.canvascamera.getUIOrientation() !== this.orientation) {
+    if (this.canvasCamera.getUIOrientation() !== this.orientation) {
         this.invert();
     }
     this.buffer = [];
@@ -266,8 +266,8 @@ CanvasCamera.Renderer.prototype.run = function() {
 
 CanvasCamera.Renderer.prototype.render = function(data) {
     if (this.enabled()) {
-        if (this.canvascamera && this.canvascamera.options && this.canvascamera.options.use) {
-            if (data && data[this.canvascamera.options.use]) {
+        if (this.canvasCamera && this.canvasCamera.options && this.canvasCamera.options.use) {
+            if (data && data[this.canvasCamera.options.use]) {
                 this.data = data;
                 if (data.hasOwnProperty('orientation') && data.orientation) {
                     this.orientation = data.orientation;
@@ -275,13 +275,13 @@ CanvasCamera.Renderer.prototype.render = function(data) {
 
                 if (this.image) {
                     // type can be 'data' or 'file'
-                    switch(this.canvascamera.options.use) {
+                    switch(this.canvasCamera.options.use) {
                         case 'file':
                             // add a random seed to prevent browser caching.
-                            this.image.src = data[this.canvascamera.options.use] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
+                            this.image.src = data[this.canvasCamera.options.use] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
                         break;
                         default:
-                             this.image.src = data[this.canvascamera.options.use];
+                             this.image.src = data[this.canvasCamera.options.use];
                     }
                 }
 
@@ -409,13 +409,13 @@ CanvasCamera.Renderer.prototype.setOnAfterDraw = function(onAfterDraw) {
 };
 // End of the Renderer constructor definition
 
-CanvasCamera.prototype.createRenderer = (function (element, canvascamera) {
-    var renderer = function(element, canvascamera) {
-        return new CanvasCamera.Renderer(element, canvascamera);
+CanvasCamera.prototype.createRenderer = (function (element, canvasCamera) {
+    var renderer = function(element, canvasCamera) {
+        return new CanvasCamera.Renderer(element, canvasCamera);
     };
 
-    return function(element, canvascamera) {
-        return renderer(element, canvascamera).initialize();
+    return function(element, canvasCamera) {
+        return renderer(element, canvasCamera).initialize();
     };
 }());
 

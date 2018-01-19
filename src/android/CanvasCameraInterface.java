@@ -3,10 +3,6 @@ package com.virtuoworks.cordova.plugin.canvascamera;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/**
- * Created by Sami Radi on 18/01/2018.
- */
-
 public interface CanvasCameraInterface {
 
     public void setDefaultOptions();
