@@ -101,13 +101,9 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
 
     public void setDefaultOptions() {}
 
-    public void parseAdditionalOptions(JSONObject options) throws Exception {
+    public void parseAdditionalOptions(JSONObject options) throws Exception {}
 
-    }
-
-    public void addPluginResultDataOutput(byte[] imageRawJpegData, JSONObject pluginResultDataOutput) {
-
-    }
+    public void addPluginResultDataOutput(byte[] imageRawJpegData, JSONObject pluginResultDataOutput) {}
 
     private final Camera.PreviewCallback mCameraPreviewCallback = new Camera.PreviewCallback() {
         @Override
