@@ -39,7 +39,7 @@ var CanvasCamera = function() {
     this.nativeClass = 'CanvasCamera';
 };
 
-CanvasCamera.dispatch = (function() {
+CanvasCamera.prototype.dispatch = (function() {
     var events = [
         'beforeFrameRendering',
         'afterFrameRendering',
@@ -51,14 +51,14 @@ CanvasCamera.dispatch = (function() {
 
     events.forEach(function(eventName) {
         CanvasCamera.prototype[eventName] = function(listener) {
-            window.addEventListener(eventName.toLowerCase(), function(e){
+            window.addEventListener((this.nativeClass + '-' + eventName).toLowerCase(), function(e){
                 listener.call(e.detail.caller, e, e.detail.data, this);
             }.bind(this));
         };
     });
 
     return function(eventName, caller, data) {
-        var event = new CustomEvent(eventName, {
+        var event = new CustomEvent((this.nativeClass + '-' + eventName).toLowerCase(), {
             detail: {
                 caller: caller,
                 data: data || {}
@@ -87,7 +87,7 @@ CanvasCamera.prototype.createFrame = (function(image, element, renderer) {
     
     CanvasCamera.Frame.prototype.initialize = function() {
         if (this.image && this.element) {
-            CanvasCamera.dispatch('beforeframeinitialization', this);
+            this.renderer.canvasCamera.dispatch('beforeframeinitialization', this);
             // The X coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
             this.sx = 0; // (parseFloat(this.element.width) / 2) - (parseFloat(this.image.width) / 2);
             // The Y coordinate of the top left corner of the sub-rectangle of the source image to draw into the destination context.
@@ -115,7 +115,7 @@ CanvasCamera.prototype.createFrame = (function(image, element, renderer) {
             this.dWidth = this.sWidth * this.ratio;
             this.dHeight = this.sHeight * this.ratio;
     
-            CanvasCamera.dispatch('afterframeinitialization', this);
+            this.renderer.canvasCamera.dispatch('afterframeinitialization', this);
         }
     
         return this;
@@ -210,13 +210,13 @@ CanvasCamera.prototype.createRenderer = (function (element, canvasCamera) {
 
     CanvasCamera.Renderer.prototype.draw = function(frame) {
 
-        CanvasCamera.dispatch('beforeframerendering', this, frame);
+        this.canvasCamera.dispatch('beforeframerendering', this, frame);
 
         if (frame) {
             this.context.drawImage(frame.image, frame.sx, frame.sy, frame.sWidth, frame.sHeight, frame.dx, frame.dy, frame.dWidth, frame.dHeight);
         }
 
-        CanvasCamera.dispatch('afterframerendering', this, frame);
+        this.canvasCamera.dispatch('afterframerendering', this, frame);
 
         return this;
     };
@@ -256,8 +256,12 @@ CanvasCamera.prototype.createRenderer = (function (element, canvasCamera) {
                         // type can be 'data' or 'file'
                         switch(this.canvasCamera.options.use) {
                             case 'file':
-                                // add a random seed to prevent browser caching.
-                                this.image.src = data[this.canvasCamera.options.use] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
+                                if (data[this.canvasCamera.options.use].search('file://') > -1) {
+                                    // add a random seed to prevent browser caching.
+                                    this.image.src = data[this.canvasCamera.options.use] + '?seed=' + Math.round((new Date()).getTime() * Math.random() * 1000);
+                                } else {
+                                    this.image.src = data[this.canvasCamera.options.use];
+                                }
                             break;
                             default:
                                 this.image.src = data[this.canvasCamera.options.use];
@@ -513,7 +517,7 @@ CanvasCamera.prototype.disableRenderers = function() {
 
 CanvasCamera.prototype.setRenderingPresets = function() {
 
-    CanvasCamera.dispatch('beforerenderingpresets', this);
+    this.dispatch('beforerenderingpresets', this);
 
     switch (this.options.use) {
         case 'data':
@@ -538,7 +542,7 @@ CanvasCamera.prototype.setRenderingPresets = function() {
     var size = this.getUISize();
     this.setRenderersSize(size);
 
-    CanvasCamera.dispatch('afterrenderingpresets', this);
+    this.dispatch('afterrenderingpresets', this);
 
     return this;
 };

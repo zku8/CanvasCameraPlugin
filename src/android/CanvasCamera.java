@@ -345,7 +345,7 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
     @Override
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         mActivity = cordova.getActivity();
-        mDir = mActivity.getExternalFilesDir(null);
+        mDir = mActivity.getExternalCacheDir();
         super.initialize(cordova, webView);
         deleteCachedImageFiles();
     }
@@ -1053,45 +1053,63 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
 
     private byte[] getResizedAndRotatedImage(byte[] byteArray, int targetWidth, int targetHeight, int angle) {
         if (byteArray.length > 0) {
-            // unscaled unrotated bitmap
-            Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+            // Sets bitmap factory options
+            BitmapFactory.Options bOptions = new BitmapFactory.Options();
+            // Set inJustDecodeBounds=true to check dimensions
+            bOptions.inJustDecodeBounds = true;
+            // Decode unscaled unrotated bitmap boundaries only
+            BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length, bOptions);
 
             if (targetWidth > 0 && targetHeight > 0) {
-
-                // calculate aspect ratio
-                int[] widthHeight = calculateAspectRatio(bitmap.getWidth(), bitmap.getHeight(), targetHeight, targetWidth);
+                // Calculate aspect ratio
+                int[] widthHeight = calculateAspectRatio(bOptions.outWidth , bOptions.outHeight, targetWidth, targetHeight);
 
                 int width = widthHeight[0];
                 int height = widthHeight[1];
 
-                // create scaled bitmap
+                bOptions.inSampleSize = 1;
+                // Adjust inSampleSize
+                if (bOptions.outHeight > height || bOptions.outWidth > width) {
+                    final int halfOutHeight = bOptions.outHeight / 2;
+                    final int halfOutWidth = bOptions.outWidth / 2;
+
+                    while ((halfOutHeight / bOptions.inSampleSize) >= height
+                            && (halfOutWidth / bOptions.inSampleSize) >= width) {
+                        bOptions.inSampleSize *= 2;
+                    }
+                }
+                // Set inJustDecodeBounds=false to get all pixels
+                bOptions.inJustDecodeBounds = false;
+                // Decode unscaled unrotated bitmap
+                Bitmap bitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length, bOptions);
+                // Create scaled bitmap
                 bitmap = Bitmap.createScaledBitmap(bitmap, width, height, true);
 
-                // rotation ?
-                if (angle != 0) {
+                if (angle != 0 || mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                     final Matrix matrix = new Matrix();
 
-                    // mirroring
+                    // Mirroring ?
                     if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                         matrix.preScale(-1.0f, 1.0f);
                     }
+                    // Rotation ?
+                    if (angle != 0) {
+                        // Rotation
+                        matrix.postRotate(angle);
+                    }
 
-                    // rotation
-                    matrix.postRotate(angle);
-
-                    // create rotated bitmap
+                    // Create rotated bitmap
                     bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
                 }
 
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream);
 
-                // recycling bitmap
+                // Recycling bitmap
                 bitmap.recycle();
 
                 return byteArrayOutputStream.toByteArray();
             } else {
-                bitmap.recycle();
                 return byteArray;
             }
         } else {
