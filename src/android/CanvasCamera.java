@@ -99,6 +99,11 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
     private TextureView mTextureView = null;
     private CameraHandlerThread mThread = null;
 
+    @Override
+    public String getFilenameSuffix() {
+        return TAG.toLowerCase();
+    }
+
     public void setDefaultOptions() {}
 
     public void parseAdditionalOptions(JSONObject options) throws Exception {}
@@ -937,7 +942,7 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
 
             for (String fileName : FILENAMES) {
                 if (mFileId > mFps) {
-                    File prevFile = new File(mDir, String.valueOf(fileName.charAt(0)) + (mFileId - mFps) + "-canvascamera.jpg");
+                    File prevFile = new File(mDir, String.valueOf(fileName.charAt(0)) + (mFileId - mFps) + "-" + getFilenameSuffix() + ".jpg");
                     if (prevFile.exists()) {
                         if (prevFile.delete()) {
                             if (LOGGING)
@@ -949,7 +954,7 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
                     }
                 }
 
-                File curFile = new File(mDir, String.valueOf(fileName.charAt(0)) + mFileId + "-canvascamera.jpg");
+                File curFile = new File(mDir, String.valueOf(fileName.charAt(0)) + mFileId + "-" + getFilenameSuffix() + ".jpg");
                 if (curFile.exists()) {
                     if (curFile.delete()) {
                         if (LOGGING)
@@ -974,7 +979,7 @@ public class CanvasCamera extends CordovaPlugin implements CanvasCameraInterface
             for (File aFilesList : filesList) {
                 if (aFilesList.isFile()) {
                     String fileName = aFilesList.getName();
-                    int found = fileName.lastIndexOf("-canvascamera.jpg");
+                    int found = fileName.lastIndexOf("-" + getFilenameSuffix() + ".jpg");
                     if (found > 0) {
                         if (aFilesList.delete()) {
                             if (LOGGING) Log.v(TAG, "Cached file " + fileName + " deleted !");
