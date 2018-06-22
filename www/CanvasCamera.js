@@ -173,7 +173,7 @@ CanvasCamera.prototype.createRenderer = (function (element, canvasCamera) {
                 if (this.onBeforeDraw) {
                     this.onBeforeDraw(frame);
                 }
-                this.draw(frame);
+               // this.draw(frame);
                 if (this.onAfterDraw) {
                     this.onAfterDraw(frame);
                 }
